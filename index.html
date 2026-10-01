@@ -1116,7 +1116,7 @@
 
         // ===== 天気の描画：曇り・雨のとき、雲と雨粒を画面全体（線路や電車の上）に重ねる。時間テーマのときだけ =====
         const makeCloudSprite = (rgb) => {
-            const c = document.createElement('canvas'); c.width = 360; c.height = 170; const x = c.getContext('2d');
+            const c = document.createElement('canvas'); c.width = 360; c.height = 190; const x = c.getContext('2d');
             [[90, 105, 58], [150, 80, 68], [215, 92, 62], [268, 115, 46], [130, 122, 48], [200, 126, 54]].forEach(([px, py, pr]) => {
                 const gr = x.createRadialGradient(px, py, 0, px, py, pr);
                 gr.addColorStop(0, `rgba(${rgb},0.95)`); gr.addColorStop(0.6, `rgba(${rgb},0.55)`); gr.addColorStop(1, `rgba(${rgb},0)`);
