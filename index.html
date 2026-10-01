@@ -1137,7 +1137,7 @@
                 if (a <= 0.01) return;
                 ctx.globalAlpha = Math.min(1, a);
                 CLOUDS.forEach(([fx, fy, sc, sp]) => { // 雲は自分の速さで流れ、カメラの移動分だけ地図と一緒にずれる。大きさ・数は拡大率に関係なく一定
-                    const zm = viewScale >= 4 ? 1 : 2, w = spr.width * sc * zm, h = spr.height * sc * zm, spanX = W + w, spanY = H + h; // 雲の大きさ：×1・×2は2倍、×4はそのまま
+                    const zm = 4 / viewScale, w = spr.width * sc * zm, h = spr.height * sc * zm, spanX = W + w, spanY = H + h; // 雲の大きさ：×4を基準（現状のまま）に逆算。×2は2倍、×1は4倍
                     const x = (((fx * spanX + cloudClock * sp - viewOffX / viewScale) % spanX) + spanX) % spanX - w;
                     const y = (((fy * H - h / 2 - viewOffY / viewScale + h) % spanY) + spanY) % spanY - h;
                     ctx.drawImage(spr, x, y, w, h);
