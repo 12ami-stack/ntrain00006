@@ -57,8 +57,7 @@
         .m-btn.active { background: #00cec9; border-color: #00cec9; color: #1e272e; box-shadow: 0 0 12px rgba(0,206,201,0.4); }
         .s-btn.active { background: #f39c12; border-color: #f39c12; color: #1e272e; box-shadow: 0 0 12px rgba(243,156,18,0.4); }
         .v-btn.active, .cam-btn.active { background: #0984e3; border-color: #0984e3; color: #fff; box-shadow: 0 0 12px rgba(9,132,227,0.4); }
-        .m-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 0; font-size: 11px; white-space: nowrap; }
-        .m-row #b-rand { flex-grow: 2; }
+        .m-row .btn { flex: 1 1 auto; min-width: 0; padding: 8px 4px; font-size: 11px; white-space: nowrap; } /* 文字の幅を基準に、余った幅を4つで等しく配分 */
         .st-row { flex-wrap: wrap; }
         .st-row .btn { padding: 8px 2px; flex: 1 1 22%; white-space: nowrap; }
         .st-btn[data-type="lake"].active { background: #0abde3; border-color: #0abde3; color: #1e272e; box-shadow: 0 0 12px rgba(10,189,227,0.5); }
@@ -120,7 +119,7 @@
         ・パネル上部の「元に戻す」「やり直し」で、線路・ストラクチャ・湖の作成と消去、および色の変更（テーマ・背景色・背景の明るさ・電車の色・ストラクチャ／湖／山の色）を取り消せます（1回のドラッグ／クリックを1回として、最大50回）。<br>
         ・「消しゴム」を選んで、ストラクチャ・湖・山をクリックすると消せます。線路は、クリックした位置の線分1本が消えます（ドラッグで続けて消せます）。<br>
         ・マウスホイール（トラックパッド）で画面を動かせます。画面の下、または操作パネルの左端にマウスを合わせるとスクロールバーが現れ、ドラッグして動かせます。<br>
-        ・「車両数」のボタンで、電車を1・2・3・6・9両編成にできます（後ろの車両は先頭車両の通った跡をたどります）。<br>
+        ・「電車の設定」の車両数のボタン（1両〜）で、電車を1・2・3・6・9両編成にできます（後ろの車両は先頭車両の通った跡をたどります）。<br>
         ・「停止」ボタン（または全体の速度スライダーを左端の0）で、2秒かけて減速して停止します。停止中は「出発」に変わり、押す（または速度を選ぶ）と2秒かけて動き出します。行き止まりでは、手前で減速して突端で止まり、1秒待ってから後退して引き返します（車両の向きやデザインは変わらず、そのままバックします）。<br>
         ・「カメラ」のボタンで、画面の動かし方を選べます。「通常」は今までどおり手動でスクロール、「追従」は電車（編成の中心）が常に画面の中心になるよう自動でスクロール、「切替」は電車が画面の外に出たとき、出ていった方向のエリアへ表示を1画面分だけ切り替えます（常にスクロールはしません）。<br>
         ・色に関する設定（カラーテーマ・背景色・明度・電車の色）は、パネルの「カラー設定」にまとめています（押すと開閉。最初は閉じています）。<br>
@@ -140,7 +139,7 @@
             <button class="btn" id="panel-hide-btn" title="操作パネルを隠す">非表示</button>
         </div>
         
-        <div class="section-title">電車の速度</div>
+        <div class="section-title">電車の設定</div>
         <div class="button-group">
             <button class="btn s-btn" id="s-half">1/2倍</button>
             <button class="btn s-btn active" id="s-normal">1倍</button>
@@ -153,7 +152,6 @@
             <span class="val" id="speed-val">×1.00</span>
         </div>
 
-        <div class="section-title">車両数</div>
         <div class="button-group car-row">
             <button class="btn car-btn active" data-cars="1">1両</button>
             <button class="btn car-btn" data-cars="2">2両</button>
@@ -175,12 +173,11 @@
         </div>
         </div>
 
-        <div class="section-title">分岐ルール</div>
         <div class="button-group m-row">
             <button class="btn m-btn" id="b-near" style="display:none">直近</button>
-            <button class="btn m-btn active" id="b-left">左</button>
-            <button class="btn m-btn" id="b-right">右</button>
-            <button class="btn m-btn" id="b-alt">交互</button>
+            <button class="btn m-btn active" id="b-left">左へ</button>
+            <button class="btn m-btn" id="b-right">右へ</button>
+            <button class="btn m-btn" id="b-alt">交互に</button>
             <button class="btn m-btn" id="b-rand">ランダム</button>
         </div>
 
