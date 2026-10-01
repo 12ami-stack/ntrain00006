@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>多角形線路の電車ゲーム</title>
+    <style>
+        :root {
+            --primary-color: #3b7a57;
+            --panel-bg: rgba(20, 30, 25, 0.92);
+            --panel-border: rgba(255, 255, 255, 0.15);
+            --text-color: #ffffff;
+        }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: var(--primary-color); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
+        #canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+        
+        #instructions {
+            position: absolute; top: 20px; left: 20px;
+            background: var(--panel-bg); padding: 16px 20px; border-radius: 12px; font-size: 13px; color: var(--text-color);
+            pointer-events: none; line-height: 1.6; border: 1px solid var(--panel-border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 340px;
+        }
+
+        #guide-hide-btn, #guide-show-btn {
+            pointer-events: auto; cursor: pointer; color: var(--text-color); font-size: 12px; font-weight: 600;
+            background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); border-radius: 8px; padding: 4px 10px;
+        }
+        #guide-hide-btn { float: right; margin-left: 12px; }
+        #guide-show-btn {
+            position: absolute; top: 20px; left: 20px; background: var(--panel-bg); padding: 8px 14px;
+        }
+
+        .sbar { position: fixed; background: rgba(255,255,255,0.14); border-radius: 14px; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 20; }
+        .sbar.show { opacity: 1; pointer-events: auto; }
+        #sb-v { top: 8px; bottom: 36px; width: 18px; }
+        #sb-h { left: 8px; bottom: 2px; height: 18px; }
+        .sbar .thumb { position: absolute; background: rgba(255,255,255,0.65); border-radius: 12px; cursor: grab; }
+        #sb-v .thumb { left: 0; right: 0; }
+        #sb-h .thumb { top: 0; bottom: 0; }
+
+        #ui-panel {
+            position: absolute; top: 20px; right: 0;
+            background: var(--panel-bg); padding: 16px; border-radius: 14px; border: 1px solid var(--panel-border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 12px; width: 230px;
+            max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+
+        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.6); margin-bottom: -4px; font-weight: 700; }
+        .button-group { display: flex; gap: 6px; }
+
+        .btn {
+            background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15);
+            padding: 8px 12px; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s ease; flex: 1; text-align: center;
+        }
+        .btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        
+        .m-btn.active { background: #00cec9; border-color: #00cec9; color: #1e272e; box-shadow: 0 0 12px rgba(0,206,201,0.4); }
+        .s-btn.active { background: #f39c12; border-color: #f39c12; color: #1e272e; box-shadow: 0 0 12px rgba(243,156,18,0.4); }
+        .v-btn.active, .cam-btn.active { background: #0984e3; border-color: #0984e3; color: #fff; box-shadow: 0 0 12px rgba(9,132,227,0.4); }
+        .m-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 0; font-size: 11px; white-space: nowrap; }
+        .m-row #b-rand { flex-grow: 2; }
+        .st-row { flex-wrap: wrap; }
+        .st-row .btn { padding: 8px 2px; flex: 1 1 22%; white-space: nowrap; }
+        .st-btn[data-type="lake"].active { background: #0abde3; border-color: #0abde3; color: #1e272e; box-shadow: 0 0 12px rgba(10,189,227,0.5); }
+        .st-btn[data-type="eraser"].active { background: #e84393; border-color: #e84393; color: #fff; box-shadow: 0 0 12px rgba(232,67,147,0.5); }
+        .sl-btn.active { background: #6c5ce7; border-color: #6c5ce7; color: #fff; box-shadow: 0 0 12px rgba(108,92,231,0.4); }
+        .small-btn { padding: 4px 4px; font-size: 11px; white-space: nowrap; }
+        .st-btn[data-type="track"].active { background: #0984e3; border-color: #0984e3; color: #fff; box-shadow: 0 0 12px rgba(9,132,227,0.4); }
+        .st-btn.active { background: #fdcb6e; border-color: #fdcb6e; color: #1e272e; box-shadow: 0 0 12px rgba(253,203,110,0.4); }
+        .sv-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 2px; white-space: nowrap; }
+        .car-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 2px; white-space: nowrap; }
+        .car-btn.active { background: #55efc4; border-color: #55efc4; color: #1e272e; box-shadow: 0 0 12px rgba(85,239,196,0.4); }
+        .d-row .btn { flex: 1 1 0; min-width: 0; padding: 8px 2px; white-space: nowrap; }
+        .d-btn.active { background: #00b894; border-color: #00b894; color: #1e272e; box-shadow: 0 0 12px rgba(0,184,148,0.4); }
+        .t-btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 11px; white-space: nowrap; }
+        #t-neon { flex-grow: 1.3; }
+        #t-classic { flex-grow: 1.7; }
+        .w-btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 11px; white-space: nowrap; }
+        .w-btn.active { background: #0984e3; border-color: #0984e3; color: #fff; box-shadow: 0 0 12px rgba(9,132,227,0.4); }
+        #bg-color-picker:disabled { opacity: 0.35; cursor: default; }
+        .t-btn.active { background: #e84393; border-color: #e84393; box-shadow: 0 0 12px rgba(232,67,147,0.4); }
+        .c-btn.active { background: #9b59b6; border-color: #9b59b6; color: #fff; box-shadow: 0 0 12px rgba(155,89,182,0.4); }
+        
+        #panel-hide-btn { flex: 0 0 auto; padding: 8px 8px; font-size: 11px; white-space: nowrap; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+        #panel-show-btn {
+            display: none; position: absolute; top: 20px; right: 20px; z-index: 30; cursor: pointer; color: var(--text-color); font-size: 12px; font-weight: 600;
+            background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #undo-btn, #redo-btn { flex: 1 1 0; min-width: 0; padding: 8px 2px; white-space: nowrap; }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+
+        .grp-body { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .color-pair { display: flex; gap: 12px; }
+        .color-pair .control-row { flex: 1 1 0; }
+        .control-row .pickers { display: flex; align-items: center; gap: 6px; }
+        .control-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: white; }
+        .control-row input[type="color"] {
+            appearance: none; -webkit-appearance: none; border: none; width: 25.6px; height: 25.6px;
+            border-radius: 50%; cursor: pointer; background: transparent; padding: 0;
+        }
+        .control-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        .control-row input[type="color"]::-webkit-color-swatch { border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; }
+
+        .control-row .val { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; margin-left: 8px; }
+        .control-row input[type="range"] {
+            flex: 1; margin-left: 10px; accent-color: #00cec9; cursor: pointer; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+    <button id="guide-show-btn">✨ 操作ガイドを表示</button>
+    <div id="instructions" style="display:none">
+        <button id="guide-hide-btn">非表示</button>
+        ✨ <b>操作ガイド</b><br>
+        ・内角90度以下の急な角度の部分では、走行速度が2分の1になり、なめらかに通過します。<br>
+        ・描画モードの「直線」（水平・垂直・斜め45度の8方向）、「縦」「横」「斜」（縦だけ・横だけ・斜め45度だけ）で、向きを固定して線路を描けます。「通常」は自由な向きです。<br>
+        ・右上のパネルの「配置」で駅・住宅・ビル・木を選び、画面をクリックして置けます。「線路」を押すと線路を描く状態に戻ります。ストラクチャのボタンは、押すたびに色が切り替わります（初期の色→2色→初期の色…）。置く向きは描画モードに合わせて変わります（通常・横は横向き、縦は縦向き、斜めは斜め45度）。<br>
+        ・「湖」「山」を選んで画面をドラッグすると、その軌跡が湖・山の形になります（線路や電車の下に描かれ、走行には影響しません）。<br>
+        ・ストラクチャは、ドラッグすると隙間なく続けて置けます。ほかのストラクチャ・湖・線路と重なる場所には置けません。湖のボタンも、押すたびに色が変わります。<br>
+        ・パネル上部の「元に戻す」「やり直し」で、線路・ストラクチャ・湖の作成と消去、および色の変更（テーマ・背景色・背景の明るさ・電車の色・ストラクチャ／湖／山の色）を取り消せます（1回のドラッグ／クリックを1回として、最大50回）。<br>
+        ・「消しゴム」を選んで、ストラクチャ・湖・山をクリックすると消せます。線路は、クリックした位置の線分1本が消えます（ドラッグで続けて消せます）。<br>
+        ・マウスホイール（トラックパッド）で画面を動かせます。画面の下、または操作パネルの左端にマウスを合わせるとスクロールバーが現れ、ドラッグして動かせます。<br>
+        ・「車両数」のボタンで、電車を1・2・3・6・9両編成にできます（後ろの車両は先頭車両の通った跡をたどります）。<br>
+        ・「停止」ボタン（または全体の速度スライダーを左端の0）で、2秒かけて減速して停止します。停止中は「出発」に変わり、押す（または速度を選ぶ）と2秒かけて動き出します。行き止まりでは、手前で減速して突端で止まり、1秒待ってから後退して引き返します（車両の向きやデザインは変わらず、そのままバックします）。<br>
+        ・「カメラ」のボタンで、画面の動かし方を選べます。「通常」は今までどおり手動でスクロール、「追従」は電車（編成の中心）が常に画面の中心になるよう自動でスクロール、「切替」は電車が画面の外に出たとき、出ていった方向のエリアへ表示を1画面分だけ切り替えます（常にスクロールはしません）。<br>
+        ・色に関する設定（カラーテーマ・背景色・明度・電車の色）は、パネルの「カラー設定」にまとめています（押すと開閉。最初は閉じています）。<br>
+        ・パネル右上の「非表示」で操作パネルを隠せます。隠すと画面の右上に「操作パネル」ボタンが出て、押すと元に戻ります。<br>
+        ・右上のパネルから画面スケール（表示範囲を1・2・4倍）、全体の速度・背景色などを自由に調整できます。
+    </div>
+    
+    <div class="sbar" id="sb-v"><div class="thumb" id="sb-v-thumb"></div></div>
+    <div class="sbar" id="sb-h"><div class="thumb" id="sb-h-thumb"></div></div>
+
+    <button id="panel-show-btn">⚙ 操作パネル</button>
+
+    <div id="ui-panel">
+        <div class="button-group">
+            <button class="btn" id="undo-btn" disabled>元に戻す</button>
+            <button class="btn" id="redo-btn" disabled>やり直し</button>
+            <button class="btn" id="panel-hide-btn" title="操作パネルを隠す">非表示</button>
+        </div>
+        
+        <div class="section-title">電車の速度</div>
+        <div class="button-group">
+            <button class="btn s-btn" id="s-half">1/2倍</button>
+            <button class="btn s-btn active" id="s-normal">1倍</button>
+            <button class="btn s-btn" id="s-double">2倍</button>
+            <button class="btn s-btn" id="s-stop">停止</button>
+        </div>
+        <div class="control-row">
+            <span>全体</span>
+            <input type="range" id="speed-slider" min="0" max="3" step="0.05" value="1">
+            <span class="val" id="speed-val">×1.00</span>
+        </div>
+
+        <div class="section-title">車両数</div>
+        <div class="button-group car-row">
+            <button class="btn car-btn active" data-cars="1">1両</button>
+            <button class="btn car-btn" data-cars="2">2両</button>
+            <button class="btn car-btn" data-cars="3">3両</button>
+            <button class="btn car-btn" data-cars="6">6両</button>
+            <button class="btn car-btn" data-cars="9">9両</button>
+        </div>
+
+        <div style="display:none">
+        <div class="section-title">ポイント通過挙動</div>
+        <div class="button-group">
+            <button class="btn c-btn" id="c-off">通常通り</button>
+            <button class="btn c-btn active" id="c-on">ON (リアルな通過)</button>
+        </div>
+        <div class="control-row">
+            <span>連結部・急角度</span>
+            <input type="range" id="junction-slider" min="0.1" max="1" step="0.05" value="0.5">
+            <span class="val" id="junction-val">×0.50</span>
+        </div>
+        </div>
+
+        <div class="section-title">分岐ルール</div>
+        <div class="button-group m-row">
+            <button class="btn m-btn" id="b-near" style="display:none">直近</button>
+            <button class="btn m-btn active" id="b-left">左</button>
+            <button class="btn m-btn" id="b-right">右</button>
+            <button class="btn m-btn" id="b-alt">交互</button>
+            <button class="btn m-btn" id="b-rand">ランダム</button>
+        </div>
+
+        <div class="section-title">描画モード</div>
+        <div class="button-group d-row">
+            <button class="btn d-btn active" id="d-normal">通常</button>
+            <button class="btn d-btn" id="d-straight">直線</button>
+            <button class="btn d-btn" id="d-vertical">縦</button>
+            <button class="btn d-btn" id="d-horizontal">横</button>
+            <button class="btn d-btn" id="d-diagonal">斜</button>
+        </div>
+
+        <div class="section-title">配置（線路・ストラクチャ）</div>
+        <div class="button-group st-row">
+            <button class="btn st-btn active" data-type="track">線路</button>
+            <button class="btn st-btn" data-type="station">駅</button>
+            <button class="btn st-btn" data-type="house">住宅</button>
+            <button class="btn st-btn" data-type="building">ビル</button>
+            <button class="btn st-btn" data-type="tree">木</button>
+            <button class="btn st-btn" data-type="lake">湖</button>
+            <button class="btn st-btn" data-type="mountain">山</button>
+            <button class="btn st-btn" data-type="eraser">消しゴム</button>
+        </div>
+
+        <div class="section-title">画面スケール（表示範囲）</div>
+        <div class="button-group">
+            <button class="btn v-btn active" id="v-1">1倍</button>
+            <button class="btn v-btn" id="v-2">2倍</button>
+            <button class="btn v-btn" id="v-4">4倍</button>
+        </div>
+
+        <div class="section-title">カメラ</div>
+        <div class="button-group">
+            <button class="btn cam-btn active" id="cam-normal">通常</button>
+            <button class="btn cam-btn" id="cam-follow">追従</button>
+            <button class="btn cam-btn" id="cam-switch">切替</button>
+        </div>
+
+        <div class="section-title">ファイル</div>
+        <div class="button-group sv-row">
+            <button class="btn" id="import-btn">ファイル読込</button>
+            <button class="btn" id="export-btn">ファイル書出</button>
+        </div>
+        <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+
+        <div class="grp" id="color-menu">
+            <div class="section-title">カラー設定</div>
+            <div class="grp-body">
+                <div class="button-group">
+                    <button class="btn t-btn active" id="t-forest">森林</button>
+                    <button class="btn t-btn" id="t-neon">ネオン</button>
+                    <button class="btn t-btn" id="t-classic">クラシック</button>
+                </div>
+                <div class="color-pair">
+                    <div class="control-row"><span>背景</span><input type="color" id="bg-color-picker" value="#3b7a57"></div>
+                    <div class="control-row"><span>電車</span><span class="pickers"><input type="color" id="train-color-picker" value="#ff4757" title="車体の色"><input type="color" id="train-stripe-picker" value="#ecf0f1" title="帯（中央の線）の色"></span></div>
+                </div>
+                <div class="control-row">
+                    <span>時間</span>
+                    <input type="range" id="time-speed" min="0" max="5" step="0.1" value="0" title="左端で時間経過OFF／右ほど速い">
+                    <span class="val" id="time-speed-val">OFF</span>
+                </div>
+                <div class="button-group">
+                    <button class="btn w-btn active" data-weather="clear">晴れ</button>
+                    <button class="btn w-btn" data-weather="cloudy">曇り</button>
+                    <button class="btn w-btn" data-weather="rain">雨</button>
+                </div>
+                <input type="hidden" id="bg-brightness" value="50">
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas'); let ctx = canvas.getContext('2d');
+        const undoBtn = document.getElementById('undo-btn'), redoBtn = document.getElementById('redo-btn');
+        const sHalf = document.getElementById('s-half'), sNormal = document.getElementById('s-normal'), sDouble = document.getElementById('s-double'), sStop = document.getElementById('s-stop');
+        const cOff = document.getElementById('c-off'), cOn = document.getElementById('c-on');
+        const bNear = document.getElementById('b-near'), bRand = document.getElementById('b-rand'), bAlt = document.getElementById('b-alt'), bRight = document.getElementById('b-right'), bLeft = document.getElementById('b-left');
+        const tForest = document.getElementById('t-forest'), tNeon = document.getElementById('t-neon'), tClassic = document.getElementById('t-classic');
+        const bgColorPicker = document.getElementById('bg-color-picker'), bgBrightness = document.getElementById('bg-brightness');
+
+        let tracks = [], currentTrack = [], train = null, isDrawing = false, mode = 'left', altIdx = 0, theme = 'forest';
+        let customBgColor = '#3b7a57';
+        let customTrainStripe = '#ecf0f1'; // 電車の中央の帯の色（初期は白。テーマ選択で初期色に戻る）
+        let customTrainColor = '#ff4757'; // 電車の色（テーマ選択で、そのテーマの色に戻る）
+        let trainSpeedMultiplier = 1.0;
+        let carCount = 1; const CAR_SPACING = 50; // 車両数（1・2・3・6）と、車両の中心どうしの間隔
+        let consistFlipped = false, consistSwapped = false, keepFlip = null, dwellUntil = 0, resumeSpeed = 1; // consistFlipped：バック中か（車両は向きを変えず、進行方向だけ逆）／consistSwapped：編成の前後が入れ替わったか ／ // 折り返しで前後が逆か／突端での停止の終了時刻／「出発」で戻す速度
+        const DWELL_MS = 1000, END_SLOW_DIST = 100; // 突端で止まる時間、突端の手前で減速を始める距離
+        let trail = [], trailTrain = null, trailCars = 1;
+        const contCache = new Map(); // 行き止まり判定の結果（線路が変わるたびに消す） // 先頭車両が通った跡（古い順）。後ろの車両はこの跡をたどる
+        let junctionSpeedMultiplier = 0.5; // 連結部・急角度部での走行速度倍率（通常速度に対する割合）
+        const speedSlider = document.getElementById('speed-slider'), speedVal = document.getElementById('speed-val');
+        const junctionSlider = document.getElementById('junction-slider'), junctionVal = document.getElementById('junction-val');
+        let realPointEnabled = true; // 常にON（メニューからは除去）
+        
+        const SNAP_DISTANCE = 35, SEGMENT_LENGTH = 60;
+        const BASE_TRAIN_SPEED = 3.0;
+
+        let currentAngle = 0;
+        const SLOW_ZONE_RADIUS = 15; // 急角度の頂点からこの距離以内では走行速度が倍率（junctionSpeedMultiplier）になる
+
+        const themes = {
+            forest: { bg: '#3b7a57', wood: '#5a3d28', rail: '#95a5a6', train: '#ff4757', node: 'rgba(52, 152, 219, 0.6)' },
+            neon:   { bg: '#0b0c10', wood: '#8e44ad', rail: '#66fcf1', train: '#ff007f', node: 'rgba(102, 252, 241, 0.6)' },
+            classic:{ bg: '#f1f2f6', wood: '#2f3542', rail: '#747d8c', train: '#ff4757', node: 'rgba(47, 53, 66, 0.6)' },
+            time:   { bg: '#3b7a57', wood: '#5a3d28', rail: '#95a5a6', train: '#ff4757', node: 'rgba(52, 152, 219, 0.6)' } // 背景色は時間・天気から自動で決まる
+        };
+
+        // ===== テーマ「時間」：早朝→朝→昼→夕→夜→夜中→朝 と背景色が自動で変わる。天気（晴れ・曇り・雨）で色味が変わる =====
+        const TIME_KEYS = ['#7d9a8a', '#5aa56b', '#4cae6c', '#a8884c', '#1f3d3a', '#0e1a22', '#5aa56b'].map(h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16))); // 早朝・朝・昼・夕・夜・夜中・朝
+        const WEATHER_FX = { clear: { sat: 1, k: 1, blue: 1 }, cloudy: { sat: 0.5, k: 0.85, blue: 1 }, rain: { sat: 0.35, k: 0.6, blue: 1.12 } };
+        const TIME_BASE_SEC = 60; // 速さ×1.0のとき、一周（朝→昼→夕→夜→夜中→朝）にかかる秒数
+        let timePhase = 0, timeSpeed = 0, weather = 'clear', lastFrameMs = performance.now(); // timePhase：0=早朝、1=朝 … 5=夜中、6=朝（6になったら1に戻る）／timeSpeed：0=時間経過OFF
+        const timeSpeedSlider = document.getElementById('time-speed'), timeSpeedVal = document.getElementById('time-speed-val');
+        const weatherBtns = Array.from(document.querySelectorAll('.w-btn'));
+        const phaseColor = () => { // いまの時間帯の背景色
+            let i = Math.min(5, Math.floor(timePhase)), f = timePhase - i, a = TIME_KEYS[i], b = TIME_KEYS[i + 1];
+            return [0, 1, 2].map(n => a[n] + (b[n] - a[n]) * f);
+        };
+        const applyWeather = (c) => { // 天気による色味の変化（どのテーマでも有効）
+            const w = WEATHER_FX[weather] || WEATHER_FX.clear, gray = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11;
+            c = c.map(v => gray + (v - gray) * w.sat);
+            return [c[0] * w.k, c[1] * w.k, c[2] * w.k * w.blue];
+        };
+        function updateThemeUI() {
+            tForest.classList.toggle('active', theme === 'forest'); tNeon.classList.toggle('active', theme === 'neon'); tClassic.classList.toggle('active', theme === 'classic');
+            if (theme !== 'time') timeSpeed = 0; // 時間以外のテーマでは、時間経過はOFF
+            bgColorPicker.disabled = theme === 'time'; // 時間のあいだ、背景色は自動
+            updateTimeUI();
+        }
+        function updateTimeUI() {
+            timeSpeedSlider.value = timeSpeed;
+            timeSpeedVal.textContent = timeSpeed <= 0 ? 'OFF' : '×' + timeSpeed.toFixed(1);
+            weatherBtns.forEach(b => b.classList.toggle('active', b.dataset.weather === weather));
+        }
+        timeSpeedSlider.addEventListener('input', (e) => {
+            uiOpStart();
+            timeSpeed = parseFloat(e.target.value);
+            if (timeSpeed > 0 && theme !== 'time') { theme = 'time'; bgColorPicker.disabled = true; } // 左端から動かすと、時間の色が有効になる（左端に戻すと、その時間帯の色で止まる）
+            updateTimeUI();
+        });
+        timeSpeedSlider.addEventListener('change', () => uiOpEnd());
+        weatherBtns.forEach(b => b.addEventListener('click', () => { weather = b.dataset.weather; updateTimeUI(); }));
+
+        const resizeCanvas = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        const getSnapRadius = () => Math.min(SNAP_DISTANCE * viewScale, 45); // 2倍・4倍でも自分の直前の点に吸着しない上限
+        let viewOffX = 0, viewOffY = 0; // 画面スクロール：表示範囲の左上の座標（線路の座標系）
+        let viewScale = 1; // 画面スケール：表示範囲を縦横それぞれ viewScale 倍に広げる（線路の座標は変えない）
+        const getMousePos = (e) => ({ x: e.clientX * viewScale + viewOffX, y: e.clientY * viewScale + viewOffY }), getDistance = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+        
+        // 速度：停止するとき・停止から動き出すときは、2秒かけて徐々に変える（ほかの速度変更はすぐに反映）
+        const SPEED_RAMP_MS = 2000;
+        let speedAnim = null; // { from, to, start }
+        const currentSpeedMul = () => {
+            if (!speedAnim) return trainSpeedMultiplier;
+            let k = (Date.now() - speedAnim.start) / SPEED_RAMP_MS;
+            if (k >= 1) { let v = speedAnim.to; speedAnim = null; return v; }
+            return speedAnim.from + (speedAnim.to - speedAnim.from) * Math.max(0, k);
+        };
+        const setSpeedTarget = (v) => {
+            if (v > 0) resumeSpeed = v;
+            if (speedAnim && speedAnim.to === v) { trainSpeedMultiplier = v; return; } // 同じ目標なら、そのまま続ける
+            let cur = currentSpeedMul();
+            trainSpeedMultiplier = v;
+            if (v === cur && !speedAnim) return;
+            if (v === 0 || cur === 0 || speedAnim) speedAnim = { from: cur, to: v, start: Date.now() };
+            else speedAnim = null;
+        };
+        const sBtns = [[sHalf, 0.5], [sNormal, 1.0], [sDouble, 2.0]];
+        const carBtns = Array.from(document.querySelectorAll('.car-btn'));
+        const updateCarUI = () => carBtns.forEach(b => b.classList.toggle('active', parseInt(b.dataset.cars, 10) === carCount));
+        carBtns.forEach(b => b.addEventListener('click', () => { carCount = parseInt(b.dataset.cars, 10); updateCarUI(); }));
+        const updateSpeedUI = () => {
+            speedSlider.value = trainSpeedMultiplier;
+            speedVal.textContent = trainSpeedMultiplier === 0 ? '停止' : '×' + trainSpeedMultiplier.toFixed(2);
+            sBtns.forEach(([btn, v]) => btn.classList.toggle('active', Math.abs(trainSpeedMultiplier - v) < 1e-6));
+            sStop.textContent = trainSpeedMultiplier === 0 ? '出発' : '停止'; // 停止中は「出発」、走行中は「停止」
+            sStop.classList.toggle('active', trainSpeedMultiplier === 0);
+        };
+        sStop.addEventListener('click', () => { setSpeedTarget(trainSpeedMultiplier > 0 ? 0 : (resumeSpeed || 1)); updateSpeedUI(); });
+        sBtns.forEach(([btn, v]) => btn.addEventListener('click', () => { setSpeedTarget(v); updateSpeedUI(); }));
+        speedSlider.addEventListener('input', (e) => { setSpeedTarget(parseFloat(e.target.value)); updateSpeedUI(); });
+
+        junctionSlider.addEventListener('input', (e) => {
+            junctionSpeedMultiplier = parseFloat(e.target.value);
+            junctionVal.textContent = '×' + junctionSpeedMultiplier.toFixed(2);
+        });
+
+        cOff.addEventListener('click', () => { realPointEnabled = false; cOff.classList.add('active'); cOn.classList.remove('active'); });
+        cOn.addEventListener('click', () => { realPointEnabled = true; cOn.classList.add('active'); cOff.classList.remove('active'); });
+
+        const mBtns = [[bNear, 'near'], [bRand, 'rand'], [bAlt, 'alt'], [bRight, 'right'], [bLeft, 'left']];
+        mBtns.forEach(([btn, m]) => btn.addEventListener('click', () => { mode = m; mBtns.forEach(([b, bm]) => b.classList.toggle('active', bm === m)); }));
+
+        tForest.addEventListener('click', () => quickOp(() => { theme = 'forest'; customBgColor = themes.forest.bg; bgColorPicker.value = customBgColor; customTrainColor = themes.forest.train; document.getElementById('train-color-picker').value = customTrainColor; customTrainStripe = '#ecf0f1'; document.getElementById('train-stripe-picker').value = customTrainStripe; updateThemeUI(); }));
+        tNeon.addEventListener('click', () => quickOp(() => { theme = 'neon'; customBgColor = themes.neon.bg; bgColorPicker.value = customBgColor; customTrainColor = themes.neon.train; document.getElementById('train-color-picker').value = customTrainColor; customTrainStripe = '#ecf0f1'; document.getElementById('train-stripe-picker').value = customTrainStripe; updateThemeUI(); }));
+        tClassic.addEventListener('click', () => quickOp(() => { theme = 'classic'; customBgColor = themes.classic.bg; bgColorPicker.value = customBgColor; customTrainColor = themes.classic.train; document.getElementById('train-color-picker').value = customTrainColor; customTrainStripe = '#ecf0f1'; document.getElementById('train-stripe-picker').value = customTrainStripe; updateThemeUI(); }));
+
+        bgColorPicker.addEventListener('input', (e) => { uiOpStart(); customBgColor = e.target.value; });
+        bgColorPicker.addEventListener('change', () => uiOpEnd());
+        bgBrightness.addEventListener('input', () => uiOpStart()); bgBrightness.addEventListener('change', () => uiOpEnd());
+        document.getElementById('train-color-picker').addEventListener('input', (e) => { uiOpStart(); customTrainColor = e.target.value; });
+        document.getElementById('train-color-picker').addEventListener('change', () => uiOpEnd());
+        document.getElementById('train-stripe-picker').addEventListener('input', (e) => { uiOpStart(); customTrainStripe = e.target.value; });
+        document.getElementById('train-stripe-picker').addEventListener('change', () => uiOpEnd());
+
+        const guidePanel = document.getElementById('instructions'), guideShowBtn = document.getElementById('guide-show-btn');
+        document.getElementById('guide-hide-btn').addEventListener('click', () => { guidePanel.style.display = 'none'; guideShowBtn.style.display = 'block'; });
+        guideShowBtn.addEventListener('click', () => { guidePanel.style.display = 'block'; guideShowBtn.style.display = 'none'; });
+
+        let structures = [];      // 置いたストラクチャ { type, x, y, rot }（見た目のみ）
+        let structureSel = null;  // 選択中のストラクチャ。null のとき（「線路」「消しゴム」）はストラクチャを置かない
+        let eraserOn = false;     // 消しゴムが選ばれているか
+        let isPlacing = false, lastPlacePos = null; // ストラクチャのドラッグ連続配置
+        let lakes = [], currentLake = null, isLakeDrawing = false, lakeOn = false; // 湖（ドラッグで描いた軌跡を塗りつぶす。見た目のみ）
+        let isErasing = false;
+        // 色は押すたびに デフォルト → 色A → 色B → デフォルト…（向きは描画モードに従う）
+        const COLOR_NAMES = { station: ['デフォルト', '青', '瓦色'], house: ['デフォルト', '青', '瓦色'], building: ['デフォルト', '青', '茶系'], tree: ['デフォルト', '濃い緑', '紅葉'], lake: ['デフォルト', '濃い青', '淡いグレー'], mountain: ['濃い緑', 'さらに暗い緑', '緑'] };
+        const BTN_COLORS = { // ボタンに表示する色（デフォルトは黄）
+            station: ['#fdcb6e', '#2980b9', '#5f6b73'], house: ['#fdcb6e', '#3b82c4', '#66727a'],
+            building: ['#fdcb6e', '#2c5f8a', '#6b4a3a'], tree: ['#1e6b3a', '#0f4a26', '#c0392b'], lake: ['#4aa3df', '#2a6fb0', '#d5dbdf'], mountain: ['#2f6b3a', '#1d4a27', '#5aa64b']
+        };
+        const PALETTE = {
+            station: [{ roof: '#d63031', ridge: '#b71c1c' }, { roof: '#2980b9', ridge: '#1b4f72' }, { roof: '#5f6b73', ridge: '#3d464c' }],
+            house: [{ a: '#e17055', b: '#c0553c', ridge: '#5d4037' }, { a: '#3b82c4', b: '#2c69a3', ridge: '#1f3b5c' }, { a: '#66727a', b: '#525d64', ridge: '#2f373c' }],
+            building: [{ body: '#636e72', top: '#b2bec3', ac: '#2d3436' }, { body: '#2c5f8a', top: '#7fb2dc', ac: '#1b3a57' }, { body: '#6b4a3a', top: '#b08d78', ac: '#3b2a21' }],
+            tree: [{ crown: '#1e6b3a', hl: '#2e9950' }, { crown: '#0f4a26', hl: '#1d7a3f' }, { crown: '#c0392b', hl: '#e67e22' }]
+        };
+        const structureColorIdx = { station: 0, house: 0, building: 0, tree: 0, lake: 0, mountain: 0 };
+        let lakeKind = 'lake'; // 湖・山のどちらを描くか
+        const LAKE_COLORS = [{ fill: '#4aa3df', edge: '#2e86c1' }, { fill: '#2a6fb0', edge: '#1a4f80' }, { fill: '#d5dbdf', edge: '#aeb6bc' }]; // 3色目：淡いグレー
+        const MOUNTAIN_COLORS = [{ fill: '#2f6b3a', edge: '#1f4a28' }, { fill: '#1d4a27', edge: '#12301a' }, { fill: '#5aa64b', edge: '#3e7d34' }]; // 濃い緑・さらに暗い緑・緑
+        const stBtns = Array.from(document.querySelectorAll('.st-btn'));
+        const updateStructureUI = () => {
+            stBtns.forEach(b => {
+                let t = b.dataset.type, on = (t === 'track' && !structureSel && !eraserOn && !lakeOn) || (t === 'eraser' && eraserOn) || ((t === 'lake' || t === 'mountain') && lakeOn && lakeKind === t) || t === structureSel;
+                b.classList.toggle('active', on);
+                if (BTN_COLORS[t]) { // ストラクチャのボタンは、選んでいる色に合わせて色を変える
+                    let c = BTN_COLORS[t][structureColorIdx[t]];
+                    b.style.background = on ? c : ''; b.style.borderColor = on ? c : '';
+                    b.style.color = on ? (((parseInt(c.slice(1, 3), 16) * 299 + parseInt(c.slice(3, 5), 16) * 587 + parseInt(c.slice(5, 7), 16) * 114) / 1000) > 150 ? '#1e272e' : '#fff') : '';
+                    b.style.boxShadow = on ? '0 0 12px ' + c + '88' : '';
+                }
+            });
+            canvas.style.cursor = eraserOn ? 'cell' : (structureSel ? 'copy' : 'crosshair');
+        };
+        stBtns.forEach(btn => btn.addEventListener('click', () => quickOp(() => {
+            let t = btn.dataset.type;
+            if (t === 'track') { structureSel = null; eraserOn = false; lakeOn = false; }
+            else if (t === 'eraser') { structureSel = null; eraserOn = true; lakeOn = false; }
+            else if (t === 'lake' || t === 'mountain') { if (lakeOn && lakeKind === t) structureColorIdx[t] = (structureColorIdx[t] + 1) % 3; else structureColorIdx[t] = 0; lakeKind = t; structureSel = null; eraserOn = false; lakeOn = true; }
+            else if (structureSel === t) structureColorIdx[t] = (structureColorIdx[t] + 1) % 3; // 選択中に押すと 色が切り替わる
+            else { structureSel = t; structureColorIdx[t] = 0; eraserOn = false; lakeOn = false; } // 選んだ直後はデフォルトの色
+            updateStructureUI();
+        })));
+
+        // ----- 消しゴム -----
+        const distToSeg = (p, a, b) => {
+            let dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+            let t = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+            return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+        };
+        const structHit = (st, p, m) => {
+            let dx = p.x - st.x, dy = p.y - st.y, r = st.rot || 0;
+            let lx = dx * Math.cos(r) + dy * Math.sin(r), ly = -dx * Math.sin(r) + dy * Math.cos(r);
+            if (st.type === 'tree') return Math.hypot(dx, dy) <= 16 + m;
+            let h = { station: [40, 13], house: [17, 15], building: [25, 25] }[st.type] || [25, 25];
+            return Math.abs(lx) <= h[0] + m && Math.abs(ly) <= h[1] + m;
+        };
+        // ----- 重なり判定（ストラクチャどうし・湖・線路の上には置けない） -----
+        const S_DIMS = { station: [40, 13], house: [17, 15], building: [25, 25] }; // ビルは1.25倍
+        const structPoly = (st, infl) => {
+            if (st.type === 'tree') { let r = 16 + infl, pts = []; for (let i = 0; i < 16; i++) { let a = i * Math.PI / 8; pts.push({ x: st.x + r * Math.cos(a), y: st.y + r * Math.sin(a) }); } return pts; }
+            let hx = S_DIMS[st.type][0] + infl, hy = S_DIMS[st.type][1] + infl, c = Math.cos(st.rot || 0), sn = Math.sin(st.rot || 0);
+            return [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([x, y]) => ({ x: st.x + x * c - y * sn, y: st.y + x * sn + y * c }));
+        };
+        const satOverlap = (P, Q) => { // 凸多角形どうしの重なり
+            for (const poly of [P, Q]) for (let i = 0; i < poly.length; i++) {
+                let a = poly[i], b = poly[(i + 1) % poly.length], nx = -(b.y - a.y), ny = b.x - a.x;
+                let mnP = Infinity, mxP = -Infinity, mnQ = Infinity, mxQ = -Infinity;
+                P.forEach(p => { let d = p.x * nx + p.y * ny; if (d < mnP) mnP = d; if (d > mxP) mxP = d; });
+                Q.forEach(p => { let d = p.x * nx + p.y * ny; if (d < mnQ) mnQ = d; if (d > mxQ) mxQ = d; });
+                if (mxP < mnQ || mxQ < mnP) return false;
+            }
+            return true;
+        };
+        const segInter = (a, b, c, d) => {
+            const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+            return (o(a, b, c) > 0) !== (o(a, b, d) > 0) && (o(c, d, a) > 0) !== (o(c, d, b) > 0);
+        };
+        const polyHitsPoly = (P, Q) => { // Q は凹んでいてもよい（湖）
+            for (let i = 0; i < P.length; i++) for (let j = 0; j < Q.length; j++) if (segInter(P[i], P[(i + 1) % P.length], Q[j], Q[(j + 1) % Q.length])) return true;
+            return pointInPoly(P[0], Q) || pointInPoly(Q[0], P);
+        };
+        const canPlace = (st) => {
+            let P = structPoly(st, 0.5), T = structPoly(st, 9); // T：レールの幅ぶん広げた範囲
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            T.forEach(q => { if (q.x < minX) minX = q.x; if (q.x > maxX) maxX = q.x; if (q.y < minY) minY = q.y; if (q.y > maxY) maxY = q.y; });
+            for (const o of structures) {
+                if (Math.abs(o.x - st.x) > 120 || Math.abs(o.y - st.y) > 120) continue; // 遠いものは調べない
+                if (satOverlap(P, structPoly(o, 0))) return false;
+            }
+            for (const l of lakes) {
+                if (l.kind === 'mountain') continue; // 山の上には置ける
+                if (!l.bb) { let b = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }; l.pts.forEach(q => { if (q.x < b.x0) b.x0 = q.x; if (q.x > b.x1) b.x1 = q.x; if (q.y < b.y0) b.y0 = q.y; if (q.y > b.y1) b.y1 = q.y; }); l.bb = b; }
+                if (l.bb.x1 < minX || l.bb.x0 > maxX || l.bb.y1 < minY || l.bb.y0 > maxY) continue;
+                if (polyHitsPoly(P, l.pts)) return false;
+            }
+            for (const t of tracks) for (let i = 0; i < t.length - 1; i++) {
+                let a = t[i], b = t[i + 1];
+                if ((a.x < minX && b.x < minX) || (a.x > maxX && b.x > maxX) || (a.y < minY && b.y < minY) || (a.y > maxY && b.y > maxY)) continue;
+                if (pointInPoly(a, T) || pointInPoly(b, T)) return false;
+                for (let k = 0; k < T.length; k++) if (segInter(a, b, T[k], T[(k + 1) % T.length])) return false;
+            }
+            return true;
+        };
+        const tryPlace = (pos) => {
+            let st = { type: structureSel, x: pos.x, y: pos.y, rot: modeRot(), col: structureColorIdx[structureSel] };
+            if (!canPlace(st)) return false;
+            structures.push(st); return true;
+        };
+        // ドラッグ：前の位置から今の位置まで細かくたどり、置ける場所に隙間なく続けて置く
+        const placeAlong = (from, to) => {
+            let dist = Math.hypot(to.x - from.x, to.y - from.y), step = 2, n = Math.min(600, Math.max(1, Math.ceil(dist / step)));
+            for (let i = 1; i <= n; i++) tryPlace({ x: from.x + (to.x - from.x) * i / n, y: from.y + (to.y - from.y) * i / n });
+        };
+
+        const eraseAt = (pos) => {
+            // 1) ストラクチャ（重なっていれば、その位置のものをすべて消す）
+            let m = 6 * viewScale, hits = structures.filter(st => structHit(st, pos, m));
+            if (hits.length) { structures = structures.filter(st => !hits.includes(st)); return; }
+            // 2) 線路：クリック位置にいちばん近い線分1本を消す（線路は途中で分かれる）
+            let tol = 12 * viewScale, best = null;
+            tracks.forEach((track, ti) => {
+                for (let i = 0; i < track.length - 1; i++) {
+                    let d = distToSeg(pos, track[i], track[i + 1]);
+                    if (d < tol && (!best || d < best.d)) best = { d, ti, i };
+                }
+            });
+            if (!best) { // 線路にも当たらなければ、湖の内側なら湖を消す（上に描かれたものから）
+                for (let k = lakes.length - 1; k >= 0; k--) { if (pointInPoly(pos, lakes[k].pts)) { lakes.splice(k, 1); break; } }
+                return;
+            }
+            let track = tracks[best.ti], i = best.i;
+            let A = track.slice(0, i + 1), B = track.slice(i + 1);
+            let pieces = [A, B].filter(t => t.length >= 2);
+            tracks.splice(best.ti, 1, ...pieces); trailTrain = null;
+            if (train && train.track === track) {
+                let si = Math.min(train.idx, train.idx + train.dir), moved = false;
+                if (si < i && A.length >= 2) { train.track = A; moved = true; }
+                else if (si > i && B.length >= 2) { train.track = B; train.idx -= (i + 1); moved = true; }
+                if (!moved) train = null;
+            }
+            if (!train && tracks.length) { // 電車が消えた線分にいた場合は、残った線路の先頭に置き直す
+                let t0 = tracks[0];
+                train = { track: t0, idx: 0, dir: 1, t: 0 };
+                currentAngle = Math.atan2(t0[1].y - t0[0].y, t0[1].x - t0[0].x);
+            }
+        };
+
+        const drawLake = (pts, col, kind) => {
+            const pal = kind === 'mountain' ? MOUNTAIN_COLORS : LAKE_COLORS, lc = pal[col || 0] || pal[0];
+            if (!pts || pts.length < 2) return;
+            ctx.save();
+            ctx.beginPath();
+            if (pts.length < 3) { ctx.moveTo(pts[0].x, pts[0].y); pts.forEach(p => ctx.lineTo(p.x, p.y)); }
+            else { // 各点の中点をなめらかにつなぐ
+                const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+                let m0 = mid(pts[pts.length - 1], pts[0]); ctx.moveTo(m0.x, m0.y);
+                for (let i = 0; i < pts.length; i++) { let n = pts[(i + 1) % pts.length], m = mid(pts[i], n); ctx.quadraticCurveTo(pts[i].x, pts[i].y, m.x, m.y); }
+                ctx.closePath();
+            }
+            ctx.fillStyle = lc.fill; ctx.fill();
+            ctx.lineWidth = 4; ctx.strokeStyle = lc.edge; ctx.lineJoin = 'round'; ctx.stroke();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.stroke();
+            ctx.restore();
+        };
+        const pointInPoly = (p, poly) => {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                let a = poly[i], b = poly[j];
+                if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+            }
+            return inside;
+        };
+
+        const drawStructure = (st) => {
+            ctx.save(); ctx.translate(st.x, st.y); ctx.rotate(st.rot || 0);
+            const shadow = 'rgba(0,0,0,0.25)';
+            let pal = (PALETTE[st.type] || [])[st.col || 0] || (PALETTE[st.type] || [])[0] || {};
+            if (st.type === 'station') {
+                ctx.fillStyle = shadow; ctx.fillRect(-40 + 3, -13 + 3, 80, 26);
+                ctx.fillStyle = '#dfe6e9'; ctx.fillRect(-40, -13, 80, 26);
+                ctx.fillStyle = '#f1c40f'; ctx.fillRect(-40, -13, 80, 3); ctx.fillRect(-40, 10, 80, 3);
+                ctx.fillStyle = pal.roof; ctx.fillRect(-32, -7, 64, 14);
+                ctx.fillStyle = pal.ridge; ctx.fillRect(-32, -1, 64, 2);
+            } else if (st.type === 'house') {
+                ctx.fillStyle = shadow; ctx.fillRect(-17 + 3, -15 + 3, 34, 30);
+                ctx.fillStyle = pal.a; ctx.fillRect(-17, -15, 34, 15);
+                ctx.fillStyle = pal.b; ctx.fillRect(-17, 0, 34, 15);
+                ctx.fillStyle = pal.ridge; ctx.fillRect(-17, -1, 34, 2);
+                ctx.fillStyle = '#7f8c8d'; ctx.fillRect(8, -11, 5, 5);
+            } else if (st.type === 'building') {
+                ctx.scale(1.25, 1.25); // ビルの大きさを1.25倍に
+                ctx.fillStyle = shadow; ctx.fillRect(-20 + 4, -20 + 4, 40, 40);
+                ctx.fillStyle = pal.body; ctx.fillRect(-20, -20, 40, 40);
+                ctx.fillStyle = pal.top; ctx.fillRect(-15, -15, 30, 30);
+                ctx.fillStyle = pal.ac; ctx.fillRect(-9, -9, 9, 9); ctx.fillRect(3, 2, 8, 8);
+            } else if (st.type === 'tree') {
+                ctx.fillStyle = shadow; ctx.beginPath(); ctx.arc(3, 3, 16, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.crown; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.hl; ctx.beginPath(); ctx.arc(-4, -4, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        };
+
+        let drawMode = 'normal'; // 'normal'（自由）／'straight'（水平・垂直・斜め45度の8方向）／'vertical'（縦だけ）／'horizontal'（横だけ）／'diagonal'（斜め45度だけ）
+        const dBtns = [['d-normal', 'normal'], ['d-straight', 'straight'], ['d-vertical', 'vertical'], ['d-horizontal', 'horizontal'], ['d-diagonal', 'diagonal']].map(([id, m]) => [document.getElementById(id), m]);
+        dBtns.forEach(([btn, m]) => btn.addEventListener('click', () => {
+            drawMode = m;
+            dBtns.forEach(([b, bm]) => b.classList.toggle('active', bm === m));
+        }));
+        // ストラクチャを置く向きは描画モードに従う（通常・横：横向き、縦：縦向き、斜め：斜め45度）
+        const modeRot = () => drawMode === 'vertical' ? Math.PI / 2 : (drawMode === 'diagonal' ? Math.PI / 4 : 0);
+
+        const vBtns = [[document.getElementById('v-1'), 1], [document.getElementById('v-2'), 2], [document.getElementById('v-4'), 4]];
+        vBtns.forEach(([btn, v]) => btn.addEventListener('click', () => {
+            viewScale = v;
+            vBtns.forEach(([b, bv]) => b.classList.toggle('active', bv === v));
+        }));
+
+        const findSnapPos = (pos) => {
+            for (let track of tracks) {
+                for (let p of track) { if (getDistance(pos, p) < getSnapRadius()) return { ...p }; }
+            }
+            return pos;
+        };
+
+        // ===== 線路の重なりの整理：すでにある線路と同じ場所（同じ点どうしの線分）に重ねて描いた部分は、線路として残さない =====
+        // 重なった線路があると、その点で「いま来た道を戻る」選択肢ができてしまい、線路の途中で何回も折り返していた
+        const SAME_R = 5, ON_R = 3; // 同じ点とみなす距離（連結の判定と同じ）／同じ直線上とみなす距離
+        const samePt = (a, b) => Math.abs(a.x - b.x) < SAME_R && Math.abs(a.y - b.y) < SAME_R && getDistance(a, b) < SAME_R;
+        const sameSeg = (a, b, c, d) => (samePt(a, c) && samePt(b, d)) || (samePt(a, d) && samePt(b, c));
+        const hasSeg = (p, q, list) => list.some(t => { for (let i = 0; i < t.length - 1; i++) if (sameSeg(t[i], t[i + 1], p, q)) return true; return false; });
+        const splitAtOverlapNodes = (p, q, others) => { // p→q が既存の線路と重なって走っているとき、既存の点で区切る（点を1つ飛ばして描いた重ねも、同じ線分として見つけるため）
+            let dx = q.x - p.x, dy = q.y - p.y, L2 = dx * dx + dy * dy;
+            if (!L2) return [p, q];
+            const onLine = (n) => { let t = ((n.x - p.x) * dx + (n.y - p.y) * dy) / L2; return { t: t, d: Math.hypot(n.x - (p.x + t * dx), n.y - (p.y + t * dy)) }; };
+            let hits = [];
+            for (const tr of others) for (let i = 0; i < tr.length; i++) {
+                let n = tr[i], o = onLine(n);
+                if (o.d >= ON_R || o.t <= 0 || o.t >= 1 || samePt(n, p) || samePt(n, q)) continue;
+                if ([tr[i - 1], tr[i + 1]].some(m => m && onLine(m).d < ON_R)) hits.push({ t: o.t, n: n }); // 隣の点も同じ直線上にあるなら、重なっている
+            }
+            hits.sort((a, b) => a.t - b.t);
+            let pts = [p];
+            hits.forEach(h => { if (!samePt(pts[pts.length - 1], h.n)) pts.push({ x: h.n.x, y: h.n.y }); });
+            pts.push(q);
+            return pts;
+        };
+        const cleanOverlap = (stroke, others) => { // 新しく描いた線路から、重なった線分を取り除く。残った連続部分ごとに線路として返す
+            let pts = [stroke[0]];
+            for (let i = 0; i + 1 < stroke.length; i++) pts.push(...splitAtOverlapNodes(stroke[i], stroke[i + 1], others).slice(1));
+            let pieces = [], cur = null, mine = [];
+            for (let i = 0; i + 1 < pts.length; i++) {
+                let a = pts[i], b = pts[i + 1];
+                if (samePt(a, b) || hasSeg(a, b, others) || mine.some(m => sameSeg(m[0], m[1], a, b))) { cur = null; continue; } // 重なり・同じ点の線分は捨てる
+                if (!cur) { cur = [a]; pieces.push(cur); }
+                cur.push(b); mine.push([a, b]);
+            }
+            return pieces;
+        };
+
+        canvas.addEventListener('mousedown', (e) => { beginOp(); if (eraserOn) { isErasing = true; eraseAt(getMousePos(e)); return; } if (lakeOn) { let mp = getMousePos(e); currentLake = [{ x: mp.x, y: mp.y }]; isLakeDrawing = true; return; } if (structureSel) { let mp = getMousePos(e); isPlacing = true; lastPlacePos = mp; tryPlace(mp); return; } isDrawing = true; let pos = findSnapPos(getMousePos(e)); currentTrack = [pos]; tracks.push(currentTrack); });
+        canvas.addEventListener('mousemove', (e) => {
+            if (isErasing) { eraseAt(getMousePos(e)); return; }
+            if (isPlacing) { let mp = getMousePos(e); placeAlong(lastPlacePos, mp); lastPlacePos = mp; return; }
+            if (isLakeDrawing) { let mp = getMousePos(e), last = currentLake[currentLake.length - 1]; if (getDistance(mp, last) >= 8 * viewScale) currentLake.push({ x: mp.x, y: mp.y }); return; }
+            if (!isDrawing) return; let pos = getMousePos(e);
+            // 描画モードが縦・横・斜めのときは、線分の向きをその向きに固定する（通常は自由）
+            for (let n = 0; n < 100; n++) {
+                let lastPos = currentTrack[currentTrack.length - 1]; if (!lastPos) return;
+                let dx = pos.x - lastPos.x, dy = pos.y - lastPos.y, angle, along;
+                if (drawMode === 'straight') { angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4); along = Math.hypot(dx, dy); }
+                else if (drawMode === 'vertical') { angle = dy >= 0 ? Math.PI / 2 : -Math.PI / 2; along = Math.abs(dy); }
+                else if (drawMode === 'horizontal') { angle = dx >= 0 ? 0 : Math.PI; along = Math.abs(dx); }
+                else if (drawMode === 'diagonal') {
+                    angle = (dx >= 0 ? 1 : 3) * (dy >= 0 ? 1 : -1) * Math.PI / 4;
+                    along = dx * Math.cos(angle) + dy * Math.sin(angle);
+                } else { angle = Math.atan2(dy, dx); along = Math.hypot(dx, dy); }
+                if (along <= SEGMENT_LENGTH) break; // 固定した向きの方向に、次の点まで届かなければここで止める
+                let nextPos = { x: lastPos.x + Math.cos(angle) * SEGMENT_LENGTH, y: lastPos.y + Math.sin(angle) * SEGMENT_LENGTH };
+                currentTrack.push(findSnapPos(nextPos));
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            isErasing = false; isPlacing = false;
+            if (isLakeDrawing) { isLakeDrawing = false; if (currentLake && currentLake.length >= 3) lakes.push({ pts: currentLake, col: structureColorIdx[lakeKind], kind: lakeKind }); currentLake = null; return; }
+            if (!isDrawing) return; isDrawing = false;
+            if (currentTrack.length < 2) { tracks.splice(tracks.indexOf(currentTrack), 1); currentTrack = null; return; }
+            let lastP = currentTrack[currentTrack.length - 1], snapP = findSnapPos(lastP);
+            if (getDistance(lastP, snapP) < getSnapRadius()) currentTrack[currentTrack.length - 1] = snapP;
+            { // すでにある線路（自分自身も含む）に重なった部分を取り除く
+                let pieces = cleanOverlap(currentTrack, tracks.filter(t => t !== currentTrack));
+                tracks.splice(tracks.indexOf(currentTrack), 1, ...pieces);
+                currentTrack = pieces[0] || null;
+                if (!currentTrack) return; // すべて重なりだった
+            }
+            if (!train) { 
+                train = { track: currentTrack, idx: 0, dir: 1, t: 0 }; 
+                let p1 = currentTrack[0], p2 = currentTrack[1];
+                currentAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            }
+            currentTrack = null;
+        });
+        // ===== 元に戻す・やり直し（線路・ストラクチャ・湖の作成と消去、色の変更が対象。1回のドラッグ／クリックを1回として数える） =====
+        const HISTORY_MAX = 50;
+        let history = [], future = [], pendingOp = null;
+        const makeSnap = () => ({
+            tracks: tracks.map(t => t.slice()), structures: structures.map(o => ({ ...o })), lakes: lakes.map(l => ({ col: l.col, kind: l.kind, pts: l.pts.slice() })),
+            train: train ? { ti: tracks.indexOf(train.track), idx: train.idx, dir: train.dir, t: train.t } : null,
+            ui: { theme: theme, bg: customBgColor, bright: bgBrightness.value, trainColor: customTrainColor, trainStripe: customTrainStripe, stCol: { ...structureColorIdx } } // 色の設定（テーマ・背景色・明るさ・電車の色・ストラクチャ／湖／山の色）
+        });
+        const snapSig = (sn) => JSON.stringify([sn.ui, sn.tracks.map(t => t.map(p => [p.x, p.y])), sn.structures.map(o => [o.type, o.x, o.y, o.rot, o.col]), sn.lakes.map(l => [l.col, l.kind, l.pts.map(p => [p.x, p.y])])]);
+        const updateUndoUI = () => { undoBtn.disabled = !history.length; redoBtn.disabled = !future.length; };
+        const commitHistory = (before) => { history.push(before); if (history.length > HISTORY_MAX) history.shift(); future = []; updateUndoUI(); }; // 新しい操作をすると、やり直しの履歴は消える
+        const beginOp = () => { pendingOp = makeSnap(); };
+        const finishOp = () => { // 実際に変化があったときだけ履歴に残す
+            if (!pendingOp) return;
+            let before = pendingOp; pendingOp = null;
+            if (snapSig(makeSnap()) !== snapSig(before)) commitHistory(before);
+        };
+        window.addEventListener('mouseup', finishOp);
+        const quickOp = (fn) => { let before = makeSnap(); fn(); if (snapSig(makeSnap()) !== snapSig(before)) commitHistory(before); }; // ボタン1回の操作
+        let uiPending = null; // カラーピッカー・スライダーは、操作が終わる（change）までを1回として数える
+        const uiOpStart = () => { if (!uiPending) uiPending = makeSnap(); };
+        const uiOpEnd = () => { if (!uiPending) return; let before = uiPending; uiPending = null; if (snapSig(makeSnap()) !== snapSig(before)) commitHistory(before); };
+        const restoreSnap = (sn) => {
+            let curTi = train ? tracks.indexOf(train.track) : -1, cur = train ? { idx: train.idx, dir: train.dir, t: train.t } : null;
+            tracks = sn.tracks.map(t => t.slice()); structures = sn.structures.map(o => ({ ...o })); lakes = sn.lakes.map(l => ({ col: l.col, kind: l.kind, pts: l.pts.slice() }));
+            isDrawing = false; isErasing = false; isPlacing = false; isLakeDrawing = false; currentLake = null; currentTrack = null; pendingOp = null; uiPending = null;
+            if (sn.ui) { // 色の設定を戻す
+                theme = sn.ui.theme; customBgColor = sn.ui.bg; bgBrightness.value = sn.ui.bright; customTrainColor = sn.ui.trainColor; customTrainStripe = sn.ui.trainStripe || '#ecf0f1'; Object.assign(structureColorIdx, sn.ui.stCol);
+                bgColorPicker.value = customBgColor; document.getElementById('train-color-picker').value = customTrainColor; document.getElementById('train-stripe-picker').value = customTrainStripe;
+                updateThemeUI();
+                updateStructureUI();
+            }
+            const valid = (ti, idx, dir) => !!(tracks[ti] && tracks[ti][idx] && tracks[ti][idx + dir]);
+            const setAngle = () => { let a = train.track[train.idx], b = train.track[train.idx + train.dir]; currentAngle = Math.atan2(b.y - a.y, b.x - a.x); };
+            if (cur && valid(curTi, cur.idx, cur.dir)) { train = { track: tracks[curTi], idx: cur.idx, dir: cur.dir, t: cur.t }; keepFlip = { f: consistFlipped, s: consistSwapped }; } // 電車は今の位置のまま（バック中の状態も保つ）
+            else if (sn.train && valid(sn.train.ti, sn.train.idx, sn.train.dir)) { train = { track: tracks[sn.train.ti], idx: sn.train.idx, dir: sn.train.dir, t: sn.train.t }; setAngle(); }
+            else if (tracks.length) { train = { track: tracks[0], idx: 0, dir: 1, t: 0 }; setAngle(); }
+            else train = null;
+        };
+        undoBtn.addEventListener('click', () => { if (!history.length) return; future.push(makeSnap()); restoreSnap(history.pop()); updateUndoUI(); });
+        redoBtn.addEventListener('click', () => { if (!future.length) return; history.push(makeSnap()); restoreSnap(future.pop()); updateUndoUI(); });
+
+
+
+        // ===== 保存・読み出し（ファイルの書き出し／読み込み） =====
+        const saveMsg = { textContent: '' }; // メッセージ欄は廃止（表示しない）
+
+        const makeSaveData = () => ({
+            v: 1, savedAt: Date.now(),
+            tracks: tracks.map(t => t.map(p => ({ x: p.x, y: p.y }))),
+            structures: structures.map(o => ({ type: o.type, x: o.x, y: o.y, rot: o.rot || 0, col: o.col || 0 })),
+            lakes: lakes.map(l => ({ col: l.col || 0, kind: l.kind || 'lake', pts: l.pts.map(p => ({ x: p.x, y: p.y })) })),
+            train: train ? { ti: tracks.indexOf(train.track), idx: train.idx, dir: train.dir, t: train.t } : null,
+            angle: currentAngle,
+            settings: {
+                speed: trainSpeedMultiplier, cars: carCount, junction: junctionSpeedMultiplier, realPoint: realPointEnabled,
+                mode: mode, theme: theme, bgColor: customBgColor, trainColor: customTrainColor, trainStripe: customTrainStripe, bgBright: parseFloat(bgBrightness.value), timeSpeed: timeSpeed, weather: weather,
+                drawMode: drawMode, viewScale: viewScale, viewOffX: viewOffX, viewOffY: viewOffY, camera: camMode
+            }
+        });
+
+        const applySaveData = (d) => {
+            if (!d || !Array.isArray(d.tracks)) throw new Error('bad data');
+            const num = (v, def) => Number.isFinite(v) ? v : def;
+            let newTracks = d.tracks.map(t => (Array.isArray(t) ? t : []).filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y)).map(p => ({ x: p.x, y: p.y }))).filter(t => t.length >= 2);
+            { let clean = []; newTracks.forEach(t => cleanOverlap(t, clean).forEach(pc => clean.push(pc))); newTracks = clean; } // 重なった線路は取り除く
+            const types = ['station', 'house', 'building', 'tree'];
+            let newStructs = (Array.isArray(d.structures) ? d.structures : []).filter(o => o && types.includes(o.type) && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o => ({ type: o.type, x: o.x, y: o.y, rot: num(o.rot, 0), col: [0, 1, 2].includes(o.col) ? o.col : 0 }));
+            lakes = (Array.isArray(d.lakes) ? d.lakes : []).map(l => {
+                let pts = Array.isArray(l) ? l : (l && Array.isArray(l.pts) ? l.pts : []); // 古い形式（点の配列）にも対応
+                return { col: (l && [0, 1, 2].includes(l.col)) ? l.col : 0, kind: (l && l.kind === 'mountain') ? 'mountain' : 'lake', pts: pts.filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y)).map(p => ({ x: p.x, y: p.y })) };
+            }).filter(l => l.pts.length >= 3);
+            currentLake = null; isLakeDrawing = false;
+            isDrawing = false; currentTrack = [];
+            tracks = newTracks; structures = newStructs;
+            // 電車
+            train = null;
+            if (d.train && newTracks.length) {
+                let ti = d.train.ti, tr = d.tracks[ti];
+                // 元の配列で除外された線路がある場合に備え、保存時の線路と点列が一致するものを探す
+                let idxNew = -1;
+                if (tr) idxNew = newTracks.findIndex(t => t.length === tr.length && t[0].x === tr[0].x && t[0].y === tr[0].y && t[t.length - 1].x === tr[tr.length - 1].x && t[t.length - 1].y === tr[tr.length - 1].y);
+                let track = newTracks[idxNew];
+                let dir = d.train.dir === -1 ? -1 : 1, idx = Math.round(num(d.train.idx, 0));
+                if (track && idx >= 0 && idx < track.length && track[idx + dir]) train = { track: track, idx: idx, dir: dir, t: Math.min(0.999, Math.max(0, num(d.train.t, 0))) };
+            }
+            if (!train && newTracks.length) {
+                train = { track: newTracks[0], idx: 0, dir: 1, t: 0 };
+            }
+            currentAngle = train ? num(d.angle, Math.atan2(train.track[train.idx + train.dir].y - train.track[train.idx].y, train.track[train.idx + train.dir].x - train.track[train.idx].x)) : 0;
+            // 設定
+            let st = d.settings || {};
+            trainSpeedMultiplier = Math.min(3, Math.max(0, num(st.speed, 1))); speedAnim = null;
+            carCount = [1, 2, 3, 6, 9].includes(st.cars) ? st.cars : 1; trailTrain = null; consistFlipped = false; consistSwapped = false; keepFlip = null; updateCarUI();
+            junctionSpeedMultiplier = Math.min(1, Math.max(0.1, num(st.junction, 0.5)));
+            realPointEnabled = true;
+            mode = ['alt', 'right', 'left', 'rand'].includes(st.mode) ? st.mode : 'left'; // 「直近」は封印中 // 「直近」は封印中のためランダムにする
+            theme = themes[st.theme] ? st.theme : 'forest';
+            customBgColor = (typeof st.bgColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(st.bgColor)) ? st.bgColor : themes[theme].bg;
+            bgBrightness.value = Math.min(100, Math.max(0, num(st.bgBright, 50)));
+            timeSpeed = Math.min(5, Math.max(0, num(st.timeSpeed, 0))); weather = ['clear', 'cloudy', 'rain'].includes(st.weather) ? st.weather : 'clear'; timePhase = 0; updateTimeUI();
+            drawMode = ['straight', 'vertical', 'horizontal', 'diagonal'].includes(st.drawMode) ? st.drawMode : 'normal';
+            viewScale = [1, 2, 4].includes(st.viewScale) ? st.viewScale : 1;
+            viewOffX = num(st.viewOffX, 0); viewOffY = num(st.viewOffY, 0);
+            setCamMode(['follow', 'switch'].includes(st.camera) ? st.camera : 'normal');
+            // UIに反映
+            updateSpeedUI();
+            junctionSlider.value = junctionSpeedMultiplier; junctionVal.textContent = '×' + junctionSpeedMultiplier.toFixed(2);
+            cOn.classList.toggle('active', realPointEnabled); cOff.classList.toggle('active', !realPointEnabled);
+            mBtns.forEach(([b, bm]) => b.classList.toggle('active', bm === mode));
+            updateThemeUI();
+            bgColorPicker.value = customBgColor;
+            customTrainColor = (typeof st.trainColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(st.trainColor)) ? st.trainColor : themes[theme].train;
+            document.getElementById('train-color-picker').value = customTrainColor;
+            customTrainStripe = (typeof st.trainStripe === 'string' && /^#[0-9a-fA-F]{6}$/.test(st.trainStripe)) ? st.trainStripe : '#ecf0f1';
+            document.getElementById('train-stripe-picker').value = customTrainStripe;
+            dBtns.forEach(([b, bm]) => b.classList.toggle('active', bm === drawMode));
+            vBtns.forEach(([b, bv]) => b.classList.toggle('active', bv === viewScale));
+        };
+
+        // ファイル書き出し（公開ページでは downloads 機能、なければ通常のダウンロード）
+        document.getElementById('export-btn').addEventListener('click', async () => {
+            let json = JSON.stringify(makeSaveData(), null, 1), filename = 'train-game-save.json';
+            try {
+                if (window.claude && typeof window.claude.use === 'function') {
+                    let dl = await window.claude.use('downloads');
+                    if (dl) { await dl.save({ filename: filename, data: json }); saveMsg.textContent = 'ファイルを書き出しました'; return; }
+                }
+            } catch (e) {
+                if (e && e.code === 'declined') { saveMsg.textContent = '書き出しを取りやめました'; return; }
+            }
+            try {
+                let a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = filename;
+                document.body.appendChild(a); a.click(); a.remove(); saveMsg.textContent = 'ファイルを書き出しました';
+            } catch (e) { saveMsg.textContent = 'ファイルを書き出せませんでした'; }
+        });
+        const importFile = document.getElementById('import-file');
+        document.getElementById('import-btn').addEventListener('click', () => importFile.click());
+        importFile.addEventListener('change', () => {
+            let f = importFile.files && importFile.files[0]; if (!f) return;
+            let r = new FileReader();
+            r.onload = () => { try { let before = makeSnap(); applySaveData(JSON.parse(r.result)); commitHistory(before); saveMsg.textContent = 'ファイルを読み込みました'; } catch (e) { saveMsg.textContent = 'ファイルを読み込めませんでした（形式が違います）'; } importFile.value = ''; };
+            r.onerror = () => { saveMsg.textContent = 'ファイルを読み込めませんでした'; };
+            r.readAsText(f);
+        });
+
+
+        // ===== 画面スクロール（マウスホイール + スクロールバー：画面の下、または操作メニューの左端にマウスを合わせると表示） =====
+        const panelEl = document.getElementById('ui-panel');
+        const panelShowBtn = document.getElementById('panel-show-btn');
+        document.getElementById('panel-hide-btn').addEventListener('click', () => { panelEl.style.display = 'none'; panelShowBtn.style.display = 'block'; });
+        panelShowBtn.addEventListener('click', () => { panelEl.style.display = ''; panelShowBtn.style.display = 'none'; });
+        const sbV = document.getElementById('sb-v'), sbH = document.getElementById('sb-h');
+        const thumbV = document.getElementById('sb-v-thumb'), thumbH = document.getElementById('sb-h-thumb');
+        let sbDrag = null;
+        const computeExtent = (axis) => {
+            let viewLen = (axis === 'x' ? window.innerWidth : window.innerHeight) * viewScale;
+            let off = axis === 'x' ? viewOffX : viewOffY, mn = off, mx = off + viewLen;
+            const add = (p) => { let v = axis === 'x' ? p.x : p.y; if (v < mn) mn = v; if (v > mx) mx = v; };
+            tracks.forEach(t => t.forEach(add)); structures.forEach(add); lakes.forEach(l => l.pts.forEach(add));
+            return { min: mn - viewLen, L: (mx - mn) + 2 * viewLen, viewLen: viewLen }; // 内容と表示範囲の外側にも、表示範囲1つ分の余白
+        };
+        const updateScrollbars = () => {
+            [['x', sbH, thumbH], ['y', sbV, thumbV]].forEach(([axis, bar, thumb]) => {
+                if (!bar.classList.contains('show')) return;
+                let ext = (sbDrag && sbDrag.axis === axis) ? sbDrag.ext : computeExtent(axis);
+                let trackPx = axis === 'x' ? bar.clientWidth : bar.clientHeight, off = axis === 'x' ? viewOffX : viewOffY;
+                let len = Math.max(30, Math.min(trackPx, trackPx * ext.viewLen / ext.L));
+                let pos = Math.max(0, Math.min(trackPx - len, (off - ext.min) / ext.L * trackPx));
+                if (axis === 'x') { thumb.style.left = pos + 'px'; thumb.style.width = len + 'px'; }
+                else { thumb.style.top = pos + 'px'; thumb.style.height = len + 'px'; }
+            });
+        };
+        const refreshScrollbarVisibility = (e) => {
+            let r = panelEl.style.display === 'none' ? { left: window.innerWidth } : panelEl.getBoundingClientRect(); // パネルを隠しているときは画面の右端が基準
+            sbV.style.left = (r.left - 26) + 'px';                          // 縦：操作メニューの左端の外側
+            sbH.style.right = (window.innerWidth - r.left + 26) + 'px';     // 横：下部（縦バーと重ならない長さ）
+            let nearV = e.clientX >= r.left - 50 && e.clientX < r.left, nearH = e.clientY >= window.innerHeight - 40;
+            sbV.classList.toggle('show', nearV || !!(sbDrag && sbDrag.axis === 'y'));
+            sbH.classList.toggle('show', nearH || !!(sbDrag && sbDrag.axis === 'x'));
+        };
+        window.addEventListener('mousemove', (e) => {
+            if (sbDrag) {
+                let d = ((sbDrag.axis === 'x' ? e.clientX : e.clientY) - sbDrag.startClient) / sbDrag.trackPx * sbDrag.ext.L;
+                if (sbDrag.axis === 'x') viewOffX = sbDrag.startOff + d; else viewOffY = sbDrag.startOff + d;
+            }
+            refreshScrollbarVisibility(e);
+        });
+        document.documentElement.addEventListener('mouseleave', () => { if (!sbDrag) { sbV.classList.remove('show'); sbH.classList.remove('show'); } });
+        window.addEventListener('mouseup', (e) => { if (sbDrag) { sbDrag = null; refreshScrollbarVisibility(e); } });
+        [['x', sbH, thumbH], ['y', sbV, thumbV]].forEach(([axis, bar, thumb]) => thumb.addEventListener('mousedown', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            sbDrag = { axis: axis, startClient: axis === 'x' ? e.clientX : e.clientY, startOff: axis === 'x' ? viewOffX : viewOffY, ext: computeExtent(axis), trackPx: axis === 'x' ? bar.clientWidth : bar.clientHeight };
+        }));
+        [['x', sbH, thumbH], ['y', sbV, thumbV]].forEach(([axis, bar, thumb]) => bar.addEventListener('mousedown', (e) => {
+            if (e.target !== bar) return; // つまみ以外（バーの背景）を押したとき：その位置につまみを移し、そのままドラッグもできる
+            e.preventDefault(); e.stopPropagation();
+            let ext = computeExtent(axis), r = bar.getBoundingClientRect(), trackPx = axis === 'x' ? bar.clientWidth : bar.clientHeight;
+            let click = axis === 'x' ? e.clientX : e.clientY, rel = click - (axis === 'x' ? r.left : r.top);
+            let len = Math.max(30, Math.min(trackPx, trackPx * ext.viewLen / ext.L)), pos = Math.max(0, Math.min(trackPx - len, rel - len / 2));
+            let off = ext.min + pos / trackPx * ext.L;
+            if (axis === 'x') viewOffX = off; else viewOffY = off;
+            sbDrag = { axis: axis, startClient: click, startOff: off, ext: ext, trackPx: trackPx };
+        }));
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            let k = (e.deltaMode === 1 ? 16 : 1) * viewScale;
+            viewOffX += e.deltaX * k; viewOffY += e.deltaY * k;
+        }, { passive: false });
+
+        // ===== カメラ：通常／追従／切替 =====
+        let camMode = 'normal', camPos = null, camPrevT = null, camLast = null, camPrevHead = null, camWasInside = true, camJustSet = false;
+        const camBtns = [['cam-normal', 'normal'], ['cam-follow', 'follow'], ['cam-switch', 'switch']].map(([id, m]) => [document.getElementById(id), m]);
+        const updateCamUI = () => camBtns.forEach(([b, m]) => b.classList.toggle('active', m === camMode));
+        const setCamMode = (m) => { camMode = m; camPrevT = null; camLast = null; camPrevHead = null; camJustSet = (m === 'switch'); updateCamUI(); };
+        camBtns.forEach(([b, m]) => b.addEventListener('click', () => setCamMode(m)));
+        const updateCamera = () => { // 毎フレームの最後に呼ぶ。camPos：電車の先頭と編成の中心の位置（線路の座標）
+            const p = camPos;
+            if (camMode === 'normal' || !p) return;
+            const W = canvas.width * viewScale, H = canvas.height * viewScale; // 画面に映っている範囲の大きさ（線路の座標）
+            if (camMode === 'follow') { // 編成の中心が画面の中心に来るようにする（折り返しで先頭が入れ替わっても、編成の中心は動かない）
+                let tx = p.mx - W / 2, ty = p.my - H / 2, ffx = 0, ffy = 0;
+                if (camPrevT && Math.hypot(tx - camPrevT.x, ty - camPrevT.y) < 80) { ffx = tx - camPrevT.x; ffy = ty - camPrevT.y; } // 電車の動きの分は、そのまま一緒に動く
+                camPrevT = { x: tx, y: ty };
+                let dx = tx - viewOffX, dy = ty - viewOffY; // 中心からのずれ（切り替えた直後や、電車の位置が飛んだときは、なめらかに寄せる）
+                if (Math.hypot(dx, dy) < 0.5) { viewOffX = tx; viewOffY = ty; }
+                else { viewOffX += ffx + dx * 0.2; viewOffY += ffy + dy * 0.2; }
+                return;
+            }
+            // 切替：先頭が画面の外へ出たとき、そのエリアへ1画面分だけ切り替える（手動のスクロール中や、電車の位置が飛んだときは切り替えない）
+            const inside = (ox, oy) => p.hx >= ox && p.hx < ox + W && p.hy >= oy && p.hy < oy + H;
+            let user = !camLast || camLast.x !== viewOffX || camLast.y !== viewOffY || camLast.s !== viewScale;
+            let jumped = !!camPrevHead && Math.hypot(p.hx - camPrevHead.x, p.hy - camPrevHead.y) > 30;
+            let force = camJustSet; camJustSet = false; // 「切替」を押した直後に電車が画面外なら、すぐそのエリアを表示する
+            if (!inside(viewOffX, viewOffY) && (force || (!user && !jumped && camWasInside))) {
+                viewOffX += Math.floor((p.hx - viewOffX) / W) * W; viewOffY += Math.floor((p.hy - viewOffY) / H) * H;
+            }
+            camWasInside = inside(viewOffX, viewOffY);
+            camLast = { x: viewOffX, y: viewOffY, s: viewScale }; camPrevHead = { x: p.hx, y: p.hy };
+        };
+
+        function drawRailway(track) {
+            if (track.length < 2) return;
+            let currentTheme = themes[theme];
+            ctx.save(); ctx.strokeStyle = currentTheme.wood; ctx.lineWidth = 6;
+            ctx.beginPath(); // 枕木は全部まとめて1回で描く
+            for (let i = 0; i < track.length - 1; i++) {
+                let p1 = track[i], p2 = track[i + 1], dist = getDistance(p1, p2), angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                let ca = Math.cos(angle), sa = Math.sin(angle), nx = -sa * 12, ny = ca * 12;
+                for (let d = 0; d <= dist; d += 12) {
+                    let cx = p1.x + ca * d, cy = p1.y + sa * d;
+                    ctx.moveTo(cx - nx, cy - ny); ctx.lineTo(cx + nx, cy + ny);
+                }
+            }
+            ctx.stroke();
+            ctx.restore();
+            ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = currentTheme.rail;
+            // 各線分に平行なレールを引く（角でも線路幅が7×2のまま変わらない）
+            for (let side of [7, -7]) {
+                ctx.beginPath();
+                for (let i = 0; i < track.length - 1; i++) {
+                    let p1 = track[i], p2 = track[i + 1], angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    let nx = Math.cos(angle + Math.PI / 2) * side, ny = Math.sin(angle + Math.PI / 2) * side;
+                    if (i === 0) ctx.moveTo(p1.x + nx, p1.y + ny); else ctx.lineTo(p1.x + nx, p1.y + ny);
+                    ctx.lineTo(p2.x + nx, p2.y + ny);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // ===== 複数車両：先頭車両の通った跡に沿って、後ろの車両がついてくる =====
+        const ptAtU = (tr, u) => { let a = Math.floor(u), b = Math.ceil(u), pa = tr[a] || tr[b], pb = tr[b] || tr[a], f = u - a; return { x: pa.x + (pb.x - pa.x) * f, y: pa.y + (pb.y - pa.y) * f }; };
+        const stateAtU = (u, dir) => dir === 1 ? { idx: Math.floor(u), t: u - Math.floor(u) } : { idx: Math.ceil(u), t: Math.ceil(u) - u };
+        const trailNeed = () => (carCount - 1) * CAR_SPACING + 40;
+        const buildInitialTrail = () => { // 先頭車両の後ろの線路をたどって跡を作る（線路の手前が足りなければ、まっすぐ延長）
+            const tr = train.track, dir = train.dir, u0 = train.idx + dir * train.t, need = trailNeed(), step = 4;
+            let nodes = [u0], u = u0, len = 0, prevPt = ptAtU(tr, u0);
+            while (len < need) {
+                let nv = dir === 1 ? (Number.isInteger(u) ? u - 1 : Math.floor(u)) : (Number.isInteger(u) ? u + 1 : Math.ceil(u));
+                if (nv < 0 || nv >= tr.length) break;
+                let np = ptAtU(tr, nv); len += Math.hypot(np.x - prevPt.x, np.y - prevPt.y); prevPt = np; nodes.push(nv); u = nv;
+            }
+            const mk = (uu, p) => { let st = stateAtU(uu, dir); return { x: p.x, y: p.y, tr: tr, idx: st.idx, dir: dir, t: st.t }; };
+            let pts = nodes.map(nu => ({ u: nu, p: ptAtU(tr, nu) })), entries = [mk(pts[0].u, pts[0].p)], s0 = 0, nextS = step;
+            for (let i = 0; i + 1 < pts.length; i++) {
+                let A = pts[i], B = pts[i + 1], L = Math.hypot(B.p.x - A.p.x, B.p.y - A.p.y);
+                while (nextS <= s0 + L && nextS <= need) { let f = L ? (nextS - s0) / L : 0; entries.push(mk(A.u + (B.u - A.u) * f, { x: A.p.x + (B.p.x - A.p.x) * f, y: A.p.y + (B.p.y - A.p.y) * f })); nextS += step; }
+                s0 += L;
+            }
+            if (nextS <= need) {
+                let last = pts[pts.length - 1], dx = -1, dy = 0;
+                if (pts.length >= 2) { let pv = pts[pts.length - 2].p; dx = last.p.x - pv.x; dy = last.p.y - pv.y; }
+                let dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+                while (nextS <= need) { entries.push(mk(last.u, { x: last.p.x + dx * (nextS - s0), y: last.p.y + dy * (nextS - s0) })); nextS += step; }
+            }
+            trail = entries.reverse();
+        };
+        const trimTrail = () => {
+            let need = trailNeed() + 20, acc = 0;
+            for (let k = trail.length - 1; k > 0; k--) { acc += Math.hypot(trail[k].x - trail[k - 1].x, trail[k].y - trail[k - 1].y); if (acc > need) { if (k > 1) trail.splice(0, k - 1); return; } }
+        };
+        const updateTrail = (tx, ty) => {
+            if (trailTrain === train && trailCars !== carCount) consistSwapped = false; // 車両数を変えると、跡が作り直される
+            if (trailTrain !== train) { // 別の電車に替わったとき（「元に戻す」で同じ位置の電車を引き継ぐ場合は、バック中の状態を保つ）
+                dwellUntil = 0;
+                if (trailTrain) { if (keepFlip) { consistFlipped = keepFlip.f; consistSwapped = keepFlip.s; } else { consistFlipped = false; consistSwapped = false; } }
+                keepFlip = null;
+            }
+            if (trailTrain !== train || trailCars !== carCount || !trail.length) { trailTrain = train; trailCars = carCount; buildInitialTrail(); return; }
+            let last = trail[trail.length - 1], d = Math.hypot(tx - last.x, ty - last.y);
+            if (d > 80) { buildInitialTrail(); return; } // 電車が別の場所に移ったとき
+            if (d >= 1) { trail.push({ x: tx, y: ty, tr: train.track, idx: train.idx, dir: train.dir, t: train.t }); trimTrail(); }
+        };
+        const poseAt = (d, tx, ty) => { // 先頭車両から、跡に沿って d だけ後ろの位置
+            if (d <= 0) return { x: tx, y: ty };
+            let px = tx, py = ty, acc = 0;
+            for (let k = trail.length - 1; k >= 0; k--) {
+                let e = trail[k], seg = Math.hypot(e.x - px, e.y - py);
+                if (acc + seg >= d) { let f = seg ? (d - acc) / seg : 0; return { x: px + (e.x - px) * f, y: py + (e.y - py) * f }; }
+                acc += seg; px = e.x; py = e.y;
+            }
+            return { x: px, y: py };
+        };
+        const reverseConsist = (hx, hy) => { // 行き止まりのスイッチバック：編成全体を反転し、いちばん後ろの車両が先頭になる（hx,hy：突端にいる今の先頭車両の位置）
+            if (!trail.length) return false;
+            const L = (carCount - 1) * CAR_SPACING;
+            const hd = -train.dir, hi = train.idx, ht = train.track; // 呼ばれた時点で train.dir は引き返す向きに変わっているので、元の向きは -train.dir
+            const pts = trail.concat([{ x: hx, y: hy, tr: ht, idx: hi - hd, dir: hd, t: 1 }]); // 古い順。最後が今の先頭車両
+            let acc = 0, k = pts.length - 1, X = null;
+            while (k > 0) { // いちばん後ろの車両の位置を、跡の点の間を補間して、ぴったり求める（点の刻みの分のずれを出さない）
+                let A = pts[k], B = pts[k - 1], seg = Math.hypot(A.x - B.x, A.y - B.y);
+                if (acc + seg >= L) {
+                    let f = seg ? (L - acc) / seg : 0, src = f < 0.5 ? A : B, st = { idx: src.idx, t: src.t };
+                    if (A.tr === B.tr && A.dir === B.dir) { // 同じ線路・向きなら、線路上の位置（点の番号＋端数）で補間する（点をまたぐ場合も正確）
+                        let uA = A.idx + A.dir * A.t, uB = B.idx + B.dir * B.t;
+                        st = stateAtU(uA + (uB - uA) * f, A.dir);
+                    }
+                    X = { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f, tr: src.tr, idx: st.idx, dir: src.dir, t: st.t };
+                    break;
+                }
+                acc += seg; k--;
+            }
+            let kept = pts.slice(k).reverse();
+            if (X) kept.push(X); else X = pts[0];
+            if (!X.tr || !X.tr[X.idx] || !X.tr[X.idx + X.dir]) return false;
+            const mapE = e => ({ x: e.x, y: e.y, tr: e.tr, idx: e.idx + e.dir, dir: -e.dir, t: 1 - e.t });
+            trail = kept.map(mapE);
+            train.track = X.tr; train.idx = X.idx + X.dir; train.dir = -X.dir; train.t = 1 - X.t;
+            return true;
+        };
+        const distToTrackEnd = (track, idx, dir, t, limit) => { // 進行方向の線路の端の点までの距離（limit 以上なら limit）
+            let a = track[idx], b = track[idx + dir]; if (!b) return 0;
+            let d = Math.hypot(b.x - a.x, b.y - a.y) * (1 - t), i = idx + dir;
+            while (track[i + dir] && d < limit) { d += Math.hypot(track[i + dir].x - track[i].x, track[i + dir].y - track[i].y); i += dir; }
+            return track[i + dir] ? limit : d;
+        };
+        const hasContinuation = (track, endIdx) => { // 端の点から先へ進める線路があるか（なければ行き止まり）
+            let ck = contCache.get(track); if (ck && ck[endIdx] !== undefined) return ck[endIdx];
+            let res = hasContinuationRaw(track, endIdx); if (!ck) { ck = {}; contCache.set(track, ck); } ck[endIdx] = res; return res;
+        };
+        const hasContinuationRaw = (track, endIdx) => {
+            let P = track[endIdx];
+            for (const t of tracks) for (let i = 0; i < t.length; i++) {
+                if (t === track && i === endIdx) continue;
+                if (getDistance(P, t[i]) < 5 && (i < t.length - 1 || i > 0)) return true;
+            }
+            return false;
+        };
+        const drawCar = (x, y, angle, lights) => { // lights: 1=前にライト／-1=後ろにライト／0=なし
+            ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+            ctx.fillStyle = customTrainColor; ctx.fillRect(-22, -10, 44, 20);
+            ctx.fillStyle = customTrainStripe; ctx.fillRect(-18, -2, 36, 4);
+            ctx.fillStyle = '#2c3e50'; ctx.fillRect(10, -7, 6, 5); ctx.fillRect(10, 2, 6, 5); ctx.fillRect(-6, -7, 12, 5); ctx.fillRect(-6, 2, 12, 5);
+            ctx.fillStyle = '#f1c40f';
+            if (lights === 1) { ctx.fillRect(20, -8, 3, 4); ctx.fillRect(20, 4, 3, 4); }
+            else if (lights === -1) { ctx.fillRect(-23, -8, 3, 4); ctx.fillRect(-23, 4, 3, 4); } // 折り返し後は、元の先頭車両のライトが後ろ側になる
+            ctx.restore();
+        };
+
+        // ===== 描画の軽量化：湖・山・ストラクチャ・線路は、内容や表示が変わったときだけ別のキャンバスに描き直す =====
+        const worldCanvas = document.createElement('canvas'), worldCtx = worldCanvas.getContext('2d');
+        let worldKey = '', tracksSigPrev = '', sharpCorners = [];
+        const contentSig = () => { // 内容の変化を調べる軽い目印（足し算だけ）
+            let n = 0, sx = 0, sy = 0, m = 0, mx = 0, q = 0, qx = 0;
+            for (const t of tracks) { n += t.length; for (const p of t) { sx += p.x; sy += p.y * 1.0001; } }
+            for (const o of structures) { m++; mx += o.x * 3 + o.y * 7 + (o.col || 0) * 11 + (o.rot || 0) * 13; }
+            for (const l of lakes) { q += l.pts.length; for (const p of l.pts) qx += p.x + p.y * 1.0003; qx += (l.col || 0) * 101 + (l.kind === 'mountain' ? 977 : 0); }
+            return { tracks: tracks.length + ':' + n + ':' + sx + ':' + sy, rest: m + ':' + mx + ':' + lakes.length + ':' + q + ':' + qx };
+        };
+        const renderWorld = (sig) => {
+            let key = sig.tracks + '|' + sig.rest + '|' + theme + '|' + viewScale + '|' + viewOffX + '|' + viewOffY + '|' + canvas.width + 'x' + canvas.height;
+            if (key === worldKey) return;
+            worldKey = key;
+            worldCanvas.width = canvas.width; worldCanvas.height = canvas.height;
+            const mainCtx = ctx; ctx = worldCtx;
+            ctx.save(); ctx.scale(1 / viewScale, 1 / viewScale); ctx.translate(-viewOffX, -viewOffY);
+            lakes.forEach(l => drawLake(l.pts, l.col, l.kind)); // 湖・山は最も下
+            structures.forEach(drawStructure);                   // ストラクチャは線路の下
+            tracks.forEach(track => drawRailway(track));
+            ctx.restore(); ctx = mainCtx;
+        };
+        const updateSharpCorners = (sig) => { // 急な角度の頂点（線路の内角が90度以下）。線路が変わったときだけ集め直す
+            if (sig.tracks === tracksSigPrev) return;
+            tracksSigPrev = sig.tracks; contCache.clear(); sharpCorners = [];
+            tracks.forEach(track => {
+                for (let i = 1; i < track.length - 1; i++) {
+                    let p = track[i], a = track[i - 1], b = track[i + 1];
+                    let ax = a.x - p.x, ay = a.y - p.y, bx = b.x - p.x, by = b.y - p.y;
+                    let la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+                    if (la === 0 || lb === 0) continue;
+                    if ((ax * bx + ay * by) / (la * lb) >= -1e-9) sharpCorners.push(p); // cos>=0 → 内角90度以下
+                }
+            });
+        };
+
+        // ===== 天気の描画：曇り・雨のとき、雲と雨粒を画面全体（線路や電車の上）に重ねる。時間テーマのときだけ =====
+        const makeCloudSprite = (rgb) => {
+            const c = document.createElement('canvas'); c.width = 360; c.height = 170; const x = c.getContext('2d');
+            [[90, 105, 58], [150, 80, 68], [215, 92, 62], [268, 115, 46], [130, 122, 48], [200, 126, 54]].forEach(([px, py, pr]) => {
+                const gr = x.createRadialGradient(px, py, 0, px, py, pr);
+                gr.addColorStop(0, `rgba(${rgb},0.95)`); gr.addColorStop(0.6, `rgba(${rgb},0.55)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+                x.fillStyle = gr; x.beginPath(); x.arc(px, py, pr, 0, Math.PI * 2); x.fill();
+            });
+            return c;
+        };
+        const cloudLight = makeCloudSprite('238,241,245'), cloudDark = makeCloudSprite('88,98,112'); // 曇り用（明るい灰色）・雨用（暗い灰色）
+        const CLOUDS = [[0.05, 0.08, 1.3, 9], [0.30, 0.30, 1.0, 14], [0.55, 0.05, 1.5, 7], [0.78, 0.38, 1.1, 12], [0.15, 0.58, 1.2, 10], [0.45, 0.72, 0.9, 15], [0.85, 0.80, 1.4, 8], [0.68, 0.55, 1.0, 11]]; // [横の位置, 縦の位置, 大きさ, 流れる速さ(px/秒)]（8個。画面の拡大・縮小によらず、同じ大きさ・同じ数）
+        let cloudyFade = 0, rainFade = 0, rainDrops = [], cloudClock = 0;
+        function drawWeather(dt, lum) {
+            const tgtC = weather === 'cloudy' ? 1 : 0, tgtR = weather === 'rain' ? 1 : 0, step = dt * 1.2; // ゆっくり切り替わる
+            cloudyFade += Math.max(-step, Math.min(step, tgtC - cloudyFade)); rainFade += Math.max(-step, Math.min(step, tgtR - rainFade));
+            if (cloudyFade <= 0 && rainFade <= 0) { rainDrops.length = 0; return; }
+            const W = canvas.width, H = canvas.height; cloudClock += dt;
+            ctx.save();
+            [[cloudLight, cloudyFade * 0.55 * lum], [cloudDark, rainFade * 0.6 * Math.max(0.5, lum)]].forEach(([spr, a]) => {
+                if (a <= 0.01) return;
+                ctx.globalAlpha = Math.min(1, a);
+                CLOUDS.forEach(([fx, fy, sc, sp]) => { // 雲は自分の速さで流れ、カメラの移動分だけ地図と一緒にずれる。大きさ・数は拡大率に関係なく一定
+                    const w = spr.width * sc, h = spr.height * sc, spanX = W + w, spanY = H + h;
+                    const x = (((fx * spanX + cloudClock * sp - viewOffX / viewScale) % spanX) + spanX) % spanX - w;
+                    const y = (((fy * H - h / 2 - viewOffY / viewScale + h) % spanY) + spanY) % spanY - h;
+                    ctx.drawImage(spr, x, y, w, h);
+                });
+            });
+            if (rainFade > 0.01) { // 雨粒は拡大率に合わせて変わる：×1は大きく、×4は細かく（その分、数は多く）
+                const k = 1 / viewScale, want = Math.min(1200, Math.floor(W * H / 3500 * viewScale));
+                while (rainDrops.length < want) rainDrops.push({ x: Math.random() * (W + 200), y: Math.random() * H, len: 10 + Math.random() * 12, sp: 700 + Math.random() * 400 });
+                if (rainDrops.length > want) rainDrops.length = want;
+                ctx.globalAlpha = rainFade * 0.55; ctx.strokeStyle = 'rgba(200,220,245,1)'; ctx.lineWidth = Math.max(0.6, 1.3 * k); ctx.lineCap = 'round'; ctx.beginPath();
+                for (const d of rainDrops) {
+                    const ln = d.len * k, sp = d.sp * k;
+                    d.y += sp * dt; d.x -= sp * dt * 0.18; // 少し斜めに降る
+                    if (d.y > H + ln || d.x < -20) { d.y = -ln; d.x = Math.random() * (W + 200); }
+                    ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + ln * 0.18, d.y - ln);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            let currentTheme = themes[theme];
+            
+            let hex = customBgColor.replace('#', '');
+            let r = parseInt(hex.substring(0,2), 16), g = parseInt(hex.substring(2,4), 16), b = parseInt(hex.substring(4,6), 16);
+            let nowMs = performance.now(), dtSec = Math.min(0.1, (nowMs - lastFrameMs) / 1000); lastFrameMs = nowMs;
+            if (theme === 'time') { // 時間が進み、背景色が変わる（時間経過OFFのときは、その時間帯の色で止まる）
+                if (timeSpeed > 0) { timePhase += dtSec * 5 * timeSpeed / TIME_BASE_SEC; if (timePhase >= 6) timePhase -= 5; } // 夜中のあとは朝に戻る
+                [r, g, b] = phaseColor();
+            }
+            [r, g, b] = applyWeather([r, g, b]).map(v => Math.min(255, Math.max(0, v)));
+            
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            camPos = null;
+            const sig = contentSig();
+            renderWorld(sig);
+            ctx.drawImage(worldCanvas, 0, 0); // 静止している部分
+            updateSharpCorners(sig);
+
+            ctx.save();
+            ctx.scale(1 / viewScale, 1 / viewScale);
+            ctx.translate(-viewOffX, -viewOffY);
+            if (currentLake) drawLake(currentLake, structureColorIdx[lakeKind], lakeKind); // 描いている途中の湖・山
+
+            let slowPoints = sharpCorners; // 減速するのは急な角度の頂点の近くだけ（連結部は他の線路と同じ）
+
+            let spdNow = currentSpeedMul(); // 停止・再開の2秒の変化を含む、今の速度倍率
+            if (train && train.track[train.idx + train.dir]) { // 行き止まりの突端が近ければ、距離に応じて減速する
+                let tk = train.track, rem = distToTrackEnd(tk, train.idx, train.dir, train.t, END_SLOW_DIST);
+                if (rem < END_SLOW_DIST && !hasContinuation(tk, train.dir === 1 ? tk.length - 1 : 0)) spdNow *= Math.max(0.08, rem / END_SLOW_DIST);
+            }
+            const dwellDone = !!dwellUntil && Date.now() >= dwellUntil;
+            if (dwellUntil && !dwellDone) spdNow = 0; // 突端で停止中
+            if (train) {
+                let track = train.track, p1 = track[train.idx], p2 = track[train.idx + train.dir];
+
+                let atNode = (train.t === 0);
+                let currentPos = p1;
+
+                let candidates = [];
+                if (atNode) for (let t of tracks) { // 候補は、点の上にいるときだけ調べる
+                    for (let i = 0; i < t.length; i++) {
+                        if (getDistance(currentPos, t[i]) < 5) {
+                            if (i > 0 && !(t === track && ((train.dir === 1 && i === train.idx) || (train.dir === -1 && i === train.idx + 1)))) candidates.push({ track: t, idx: i, dir: -1 });
+                            if (i < t.length - 1 && !(t === track && ((train.dir === 1 && i === train.idx + 1) || (train.dir === -1 && i === train.idx)))) candidates.push({ track: t, idx: i, dir: 1 });
+                        }
+                    }
+                }
+
+                // 青い部分（ノード）に到達して方向転換が発生する瞬間
+                if (atNode && (spdNow > 0 || dwellDone) && (candidates.length > 1 || !p2)) { // 停止中は分岐の選択をしない
+                    if (candidates.length > 0) {
+                        let next;
+                        if (mode === 'near' || mode === 'right' || mode === 'left') {
+                            // 直近：進行方向に最も近い線路 / 右：最も右に曲がる線路 / 左：最も左に曲がる線路。同じ条件が並んだらランダム
+                            let prevPt = track[train.idx - train.dir];
+                            let inAngle = prevPt ? Math.atan2(p1.y - prevPt.y, p1.x - prevPt.x) : currentAngle;
+                            let scored = candidates.map(c => {
+                                let q = c.track[c.idx + c.dir];
+                                let diff = Math.atan2(q.y - p1.y, q.x - p1.x) - inAngle;
+                                diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // 正が右（時計回り）、負が左
+                                return { c, diff };
+                            });
+                            let pool = scored;
+                            if (mode !== 'near') { // 右・左では、Uターン（ほぼ真後ろ）の線路は、ほかに選べるものがあれば除く
+                                let noReverse = scored.filter(o => Math.abs(o.diff) < 2.6);
+                                if (noReverse.length) pool = noReverse;
+                            }
+                            let key = (o) => mode === 'near' ? Math.abs(o.diff) : (mode === 'right' ? -o.diff : o.diff);
+                            let best = Math.min(...pool.map(key));
+                            let ties = pool.filter(o => key(o) - best < 1e-6).map(o => o.c);
+                            next = ties[Math.floor(Math.random() * ties.length)];
+                        } else {
+                            next = mode === 'rand' ? candidates[Math.floor(Math.random() * candidates.length)] : candidates[(altIdx++) % candidates.length];
+                        }
+                        train.track = next.track; train.idx = next.idx; train.dir = next.dir; train.t = 0;
+                        track = train.track; p1 = track[train.idx]; p2 = track[train.idx + train.dir];
+
+                    } else if (!p2) {
+                        if (!dwellUntil) { dwellUntil = Date.now() + DWELL_MS; spdNow = 0; } // 突端に着いた：停止して1秒待つ
+                        else { // 1秒たったら、後退して引き返す（前後が次の折り返しまで逆になる）
+                            dwellUntil = 0;
+                            let rd = -train.dir, rp2 = track[train.idx + rd];
+                            if (rp2) {
+                                // いま画面に表示されている「折り返し後に先頭になる車両」の向き（これを引き継いで、向きが飛ばないようにする）
+                                let keepAng = currentAngle + (consistFlipped ? Math.PI : 0);
+                                if (carCount > 1) {
+                                    const Lr = (carCount - 1) * CAR_SPACING, f = poseAt(Lr - 12, p1.x, p1.y), bk = poseAt(Lr + 12, p1.x, p1.y);
+                                    keepAng = Math.atan2(f.y - bk.y, f.x - bk.x) + (consistFlipped ? Math.PI : 0);
+                                }
+                                let headX = p1.x, headY = p1.y; // 突端にいる先頭車両の位置（向きを変える前に控える）
+                                train.dir = rd; train.t = 0; p2 = rp2;
+                                if (carCount > 1 && reverseConsist(headX, headY)) { // 複数車両のときは、いちばん後ろの車両が進行方向の先頭になる（車両自体の向き・デザインは変えない）
+                                    consistSwapped = !consistSwapped;
+                                    track = train.track; p1 = track[train.idx]; p2 = track[train.idx + train.dir];
+                                }
+                                consistFlipped = !consistFlipped;
+                                currentAngle = keepAng - (consistFlipped ? Math.PI : 0); // 見た目の向きは変えず、ここから線路の向きへなめらかに合わせる
+                                spdNow = 0; // 折り返しの1フレーム目は動かさない（以前は突端にいる間の速度のまま1フレームだけ進み、ガクッとなっていた）
+                                if (trainSpeedMultiplier > 0) speedAnim = { from: 0, to: trainSpeedMultiplier, start: Date.now() }; // 加速開始
+                            } else { train = null; }
+                        }
+                    }
+                }
+
+                if (train && !p2 && spdNow <= 0 && track[train.idx - train.dir]) { // 端の点で停止：その点に、進行方向を向けたまま描く
+                    let pv = track[train.idx - train.dir];
+                    p2 = { x: p1.x + (p1.x - pv.x), y: p1.y + (p1.y - pv.y) };
+                }
+                if (train && p2) {
+                    let segDist = getDistance(p1, p2); 
+                    let currentSpeed = BASE_TRAIN_SPEED * spdNow;
+
+                    // 現在位置が連結部（青い点）または急角度の頂点の近くにあるときだけ、走行速度を倍率にする
+                    let curX = p1.x + (p2.x - p1.x) * train.t, curY = p1.y + (p2.y - p1.y) * train.t;
+                    let inJunctionZone = realPointEnabled && slowPoints.some(n => getDistance({ x: curX, y: curY }, n) < SLOW_ZONE_RADIUS);
+                    let speedFactor = inJunctionZone ? junctionSpeedMultiplier : 1.0;
+
+                    train.t += (currentSpeed * speedFactor) / segDist;
+                    
+                    if (train.t >= 1.0) { 
+                        train.t = 0; 
+                        train.idx += train.dir; 
+                    }
+                    let tx, ty, targetAngle;
+                    if (track[train.idx + train.dir]) {
+                        p1 = track[train.idx]; p2 = track[train.idx + train.dir];
+                        tx = p1.x + (p2.x - p1.x) * train.t; ty = p1.y + (p2.y - p1.y) * train.t;
+                        targetAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    } else {
+                        // 線路の端の点に着いた瞬間：端の点に描く（以前は1つ前の点に描かれ、1フレームだけワープして残像に見えていた）
+                        let endP = track[train.idx], prevP = track[train.idx - train.dir] || endP;
+                        tx = endP.x; ty = endP.y;
+                        targetAngle = (prevP === endP) ? currentAngle : Math.atan2(endP.y - prevP.y, endP.x - prevP.x);
+                    }
+                    if (realPointEnabled) {
+                        let angleDiff = targetAngle - currentAngle;
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        
+                        // 回転のなめらかさは通常どおり
+                        let turnSpeed = 0.25;
+                        currentAngle += angleDiff * turnSpeed;
+                    } else {
+                        currentAngle = targetAngle;
+                    }
+
+                    updateTrail(tx, ty);
+                    { let mp = poseAt((carCount - 1) * CAR_SPACING / 2, tx, ty); camPos = { hx: tx, hy: ty, mx: mp.x, my: mp.y }; } // カメラ用：先頭と編成の中心
+                    // バック中も車両は向きを変えず、デザイン（屋根・窓・ライトの位置）はそのまま。進行方向だけが逆になる
+                    const flipA = consistFlipped ? Math.PI : 0, origHead = consistSwapped ? carCount - 1 : 0; // origHead：もとの先頭車両（ライト付き）の位置
+                    for (let k = carCount - 1; k >= 1; k--) { // 後ろの車両から描く
+                        let d = k * CAR_SPACING, c = poseAt(d, tx, ty), f = poseAt(d - 12, tx, ty), bk = poseAt(d + 12, tx, ty);
+                        drawCar(c.x, c.y, Math.atan2(f.y - bk.y, f.x - bk.x) + flipA, k === origHead ? 1 : 0);
+                    }
+                    drawCar(tx, ty, currentAngle + flipA, origHead === 0 ? 1 : 0);
+                }
+            }
+            ctx.restore();
+            updateCamera();
+            drawWeather(dtSec, Math.min(1, Math.max(0.3, (r * 0.3 + g * 0.59 + b * 0.11) / 110)));
+            updateScrollbars();
+            requestAnimationFrame(gameLoop);
+        }
+        updateTimeUI();
+        gameLoop();
+    </script>
+</body>
+</html>
